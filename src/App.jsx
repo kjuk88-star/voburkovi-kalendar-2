@@ -561,23 +561,23 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-4">
         {activeTab === 'calendar' ? (
           <div className="space-y-4">
-            {/* Filtry členů rodiny s jejich fotkami */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+           {/* Filtry členů rodiny s jejich fotkami */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
               <button
                 onClick={() => setSelectedCategoryFilter('all')}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
+                className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${
                   selectedCategoryFilter === 'all'
                     ? 'bg-slate-800 text-white shadow-sm'
                     : 'bg-white text-slate-600 border border-slate-200'
                 }`}
               >
-                Všechny události
+                Vše
               </button>
               {CATEGORIES.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryFilter(cat.id)}
-                  className={`pl-1.5 pr-3.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-2 transition ${
+                  className={`shrink-0 pl-1.5 pr-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-2 transition ${
                     selectedCategoryFilter === cat.id
                       ? `${cat.bg} text-white shadow-sm`
                       : 'bg-white text-slate-700 border border-slate-200'
@@ -590,7 +590,7 @@ export default function App() {
                     sizeClass="w-6 h-6"
                     textClass="text-[10px]"
                   />
-                  {cat.label}
+                  <span>{cat.label}</span>
                 </button>
               ))}
             </div>
