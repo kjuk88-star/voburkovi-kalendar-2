@@ -24,14 +24,12 @@ import {
   Heart,
   Lock,
   Mail,
-  User,
   Sparkles,
-  Users,
   X
 } from 'lucide-react';
 
 // ============================================================================
-// 1. ZDE VLOŽTE SVŮJ FIREBASE CONFIG (z console.firebase.google.com)
+// 1. TVŮJ FIREBASE CONFIG (již vyplněný)
 // ============================================================================
 const firebaseConfig = {
   apiKey: "AIzaSyCEmBOWYtnLOSjtTByX2DTS9PamtFHJnaU",
@@ -48,38 +46,40 @@ const db = getFirestore(app);
 const appId = typeof __app_id !== 'undefined' ? __app_id : 'voburkovi-kalendar';
 
 // ============================================================================
-// 2. ZDE VLOŽTE SVÉ 3 ÚDAJE Z EMAILJS (z www.emailjs.com)
+// 2. ZDE VLOŽ SVÉ 3 ÚDAJE Z EMAILJS (z www.emailjs.com)
 // ============================================================================
 const EMAILJS_SERVICE_ID = "service_8x9a2b";
 const EMAILJS_TEMPLATE_ID = "template_3siagoi";
 const EMAILJS_PUBLIC_KEY = "XKxcYLYcpnWxlDKsU";
 
 // ============================================================================
-// 3. NASTAVENÍ RODINY A PŘÍSTUPOVÝCH ÚDAJŮ
+// 3. NASTAVENÍ RODINY A FOTOGRAFIÍ
 // ============================================================================
 const ALLOWED_USERS = {
   'voburka.p@seznam.cz': {
     name: 'Petr',
     role: 'Manžel',
     color: 'bg-blue-600',
-    avatar: 'P'
+    avatar: 'P',
+    photoBase: 'Petr'
   },
   'leona.voburkova@seznam.cz': {
     name: 'Lea',
     role: 'Manželka',
     color: 'bg-rose-500',
-    avatar: 'L'
+    avatar: 'L',
+    photoBase: 'Lea'
   }
 };
 
 const FAMILY_PASSWORD = 'poklop123';
 
 const CATEGORIES = [
-  { id: 'rodina', label: 'Celá rodina', bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-600' },
-  { id: 'petr', label: 'Petr', bg: 'bg-blue-600', light: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-600' },
-  { id: 'lea', label: 'Lea', bg: 'bg-rose-500', light: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
-  { id: 'patrik', label: 'Patrik', bg: 'bg-emerald-600', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
-  { id: 'ella', label: 'Ella', bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' }
+  { id: 'rodina', label: 'Celá rodina', photoBase: 'rodina', fallback: 'V', bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-600' },
+  { id: 'petr', label: 'Petr', photoBase: 'Petr', fallback: 'P', bg: 'bg-blue-600', light: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-600' },
+  { id: 'lea', label: 'Lea', photoBase: 'Lea', fallback: 'L', bg: 'bg-rose-500', light: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
+  { id: 'patrik', label: 'Patrik', photoBase: 'Patrik', fallback: 'Pa', bg: 'bg-emerald-600', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
+  { id: 'ella', label: 'Ella', photoBase: 'Ella', fallback: 'E', bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' }
 ];
 
 const SHOP_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti (Patrik & Ella)', 'Domácnost', 'Ostatní'];
@@ -90,6 +90,45 @@ const MONTHS_CZ = [
 ];
 
 const DAYS_CZ = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
+
+// ============================================================================
+// CHYTRÁ KOMPONENTA PRO FOTKY (automaticky zkusí .jpg, .png, .jpeg, velká/malá písmena)
+// ============================================================================
+function SmartAvatar({ baseName, fallbackText, bgClass = 'bg-indigo-600', sizeClass = 'w-8 h-8', textClass = 'text-xs' }) {
+  const [attempt, setAttempt] = useState(0);
+
+  const candidates = useMemo(() => {
+    if (!baseName) return [];
+    const lower = baseName.toLowerCase();
+    const capitalized = baseName.charAt(0).toUpperCase() + baseName.slice(1).toLowerCase();
+    const names = Array.from(new Set([baseName, capitalized, lower]));
+    const exts = ['.jpg', '.jpeg', '.png', '.JPG', '.JPEG', '.PNG', '.webp'];
+    const list = [];
+    for (const n of names) {
+      for (const e of exts) {
+        list.push(`/${n}${e}`);
+      }
+    }
+    return list;
+  }, [baseName]);
+
+  if (!baseName || attempt >= candidates.length) {
+    return (
+      <div className={`${sizeClass} ${bgClass} rounded-full flex items-center justify-center text-white font-bold shrink-0 shadow-sm border border-white/40 ${textClass}`}>
+        {fallbackText}
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={candidates[attempt]}
+      alt={baseName}
+      onError={() => setAttempt((prev) => prev + 1)}
+      className={`${sizeClass} rounded-full object-cover shrink-0 shadow-sm border border-white/60 bg-slate-200`}
+    />
+  );
+}
 
 export default function App() {
   // Přihlášení (uložené v prohlížeči telefonu)
@@ -103,7 +142,7 @@ export default function App() {
   const [loginError, setLoginError] = useState('');
 
   // Navigace a data
-  const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'shopping'
+  const [activeTab, setActiveTab] = useState('calendar');
   const [fbUser, setFbUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
@@ -244,7 +283,6 @@ export default function App() {
       const eventsRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
       await addDoc(eventsRef, eventPayload);
 
-      // Automaticky odešle e-mail druhému z manželů
       await sendEmailNotification(eventPayload);
 
       setNewEventTitle('');
@@ -306,7 +344,7 @@ export default function App() {
     const lastDayOfMonth = new Date(year, month + 1, 0);
 
     let startDay = firstDayOfMonth.getDay() - 1;
-    if (startDay === -1) startDay = 6; // Neděle
+    if (startDay === -1) startDay = 6;
 
     const days = [];
     for (let i = 0; i < startDay; i++) {
@@ -331,53 +369,76 @@ export default function App() {
   }, [filteredEvents, selectedDate]);
 
   // ============================================================================
-  // OBRAZOVKA 1: PŘIHLÁŠENÍ ("Ahoj Vobůrkovi")
+  // OBRAZOVKA 1: PŘIHLÁŠENÍ ("Ahoj Vobůrkovi") S FOTKAMI
   // ============================================================================
   if (!loggedUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-rose-950 flex items-center justify-center p-4">
         <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-          {/* Grafická hlavička */}
-          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 p-8 text-center text-white relative overflow-hidden">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-md rounded-2xl mx-auto flex items-center justify-center mb-4 shadow-inner border border-white/30">
-              <Heart className="w-10 h-10 text-white fill-rose-200 animate-pulse" />
+          {/* Grafická hlavička s rodinnou fotkou */}
+          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 p-7 text-center text-white relative overflow-hidden">
+            <div className="mx-auto mb-3 flex items-center justify-center">
+              <SmartAvatar
+                baseName="rodina"
+                fallbackText="V"
+                bgClass="bg-white/20"
+                sizeClass="w-24 h-24 ring-4 ring-white/30"
+                textClass="text-3xl"
+              />
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center justify-center gap-2">
               Ahoj Vobůrkovi <Sparkles className="w-6 h-6 text-amber-300" />
             </h1>
-            <p className="text-indigo-100 text-sm mt-2 font-medium">
+            <p className="text-indigo-100 text-sm mt-1.5 font-medium">
               Petr • Lea • Patrik • Ella
             </p>
+
+            {/* Medailonky všech členů rodiny */}
+            <div className="flex items-center justify-center gap-2 mt-4">
+              {CATEGORIES.filter((c) => c.id !== 'rodina').map((member) => (
+                <div key={member.id} className="flex flex-col items-center">
+                  <SmartAvatar
+                    baseName={member.photoBase}
+                    fallbackText={member.fallback}
+                    bgClass={member.bg}
+                    sizeClass="w-10 h-10 ring-2 ring-white/50"
+                    textClass="text-xs"
+                  />
+                </div>
+              ))}
+            </div>
           </div>
 
           {/* Přihlašovací formulář */}
           <form onSubmit={handleLogin} className="p-6 sm:p-8 space-y-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
-                Rychlá volba účtu
+                Kdo se přihlašuje?
               </label>
               <div className="grid grid-cols-2 gap-3 mb-4">
                 <button
                   type="button"
                   onClick={() => setEmailInput('voburka.p@seznam.cz')}
-                  className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2.5 transition ${
                     emailInput === 'voburka.p@seznam.cz'
-                      ? 'bg-blue-50 border-blue-500 text-blue-700'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-500/20'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <User className="w-4 h-4 text-blue-600" /> Petr
+                  <SmartAvatar baseName="Petr" fallbackText="P" bgClass="bg-blue-600" sizeClass="w-7 h-7" />
+                  Petr
                 </button>
                 <button
                   type="button"
                   onClick={() => setEmailInput('leona.voburkova@seznam.cz')}
-                  className={`py-2.5 px-3 rounded-xl border text-sm font-semibold flex items-center justify-center gap-2 transition ${
+                  className={`py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2.5 transition ${
                     emailInput === 'leona.voburkova@seznam.cz'
-                      ? 'bg-rose-50 border-rose-500 text-rose-700'
-                      : 'border-slate-200 text-slate-600 hover:bg-slate-50'
+                      ? 'bg-rose-50 border-rose-500 text-rose-700 ring-2 ring-rose-500/20'
+                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
                   }`}
                 >
-                  <User className="w-4 h-4 text-rose-500" /> Lea
+                  <SmartAvatar baseName="Lea" fallbackText="L" bgClass="bg-rose-500" sizeClass="w-7 h-7" />
+                  Lea
                 </button>
               </div>
 
@@ -437,18 +498,31 @@ export default function App() {
   // ============================================================================
   return (
     <div className="min-h-screen bg-slate-50 pb-24 md:pb-10">
-      {/* Horní lišta */}
+      {/* Horní lišta s fotkou rodiny a přihlášeného uživatele */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-indigo-600 to-rose-500 flex items-center justify-center text-white font-bold shadow-sm">
-              <Users className="w-5 h-5" />
-            </div>
+            <SmartAvatar
+              baseName="rodina"
+              fallbackText="V"
+              bgClass="bg-indigo-600"
+              sizeClass="w-11 h-11 ring-2 ring-indigo-100"
+              textClass="text-base"
+            />
             <div>
               <h1 className="font-bold text-slate-800 leading-tight">Vobůrkovi</h1>
-              <p className="text-xs text-slate-500">
-                Přihlášen(a): <span className="font-semibold text-slate-700">{loggedUser.name}</span>
-              </p>
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <SmartAvatar
+                  baseName={loggedUser.name}
+                  fallbackText={loggedUser.name[0]}
+                  bgClass={loggedUser.color || 'bg-blue-600'}
+                  sizeClass="w-4 h-4"
+                  textClass="text-[9px]"
+                />
+                <p className="text-xs text-slate-500">
+                  Přihlášen(a): <span className="font-semibold text-slate-700">{loggedUser.name}</span>
+                </p>
+              </div>
             </div>
           </div>
 
@@ -487,13 +561,13 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-4">
         {activeTab === 'calendar' ? (
           <div className="space-y-4">
-            {/* Filtry členů rodiny */}
+            {/* Filtry členů rodiny s jejich fotkami */}
             <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               <button
                 onClick={() => setSelectedCategoryFilter('all')}
                 className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap transition ${
                   selectedCategoryFilter === 'all'
-                    ? 'bg-slate-800 text-white'
+                    ? 'bg-slate-800 text-white shadow-sm'
                     : 'bg-white text-slate-600 border border-slate-200'
                 }`}
               >
@@ -503,13 +577,19 @@ export default function App() {
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryFilter(cat.id)}
-                  className={`px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-1.5 transition ${
+                  className={`pl-1.5 pr-3.5 py-1 rounded-full text-xs font-bold whitespace-nowrap flex items-center gap-2 transition ${
                     selectedCategoryFilter === cat.id
                       ? `${cat.bg} text-white shadow-sm`
                       : 'bg-white text-slate-700 border border-slate-200'
                   }`}
                 >
-                  <span className={`w-2 h-2 rounded-full ${selectedCategoryFilter === cat.id ? 'bg-white' : cat.dot}`} />
+                  <SmartAvatar
+                    baseName={cat.photoBase}
+                    fallbackText={cat.fallback}
+                    bgClass={cat.bg}
+                    sizeClass="w-6 h-6"
+                    textClass="text-[10px]"
+                  />
                   {cat.label}
                 </button>
               ))}
@@ -558,7 +638,7 @@ export default function App() {
 
                 <div className="grid grid-cols-7 gap-1">
                   {calendarDays.map((item, idx) => {
-                    if (!item) return <div key={idx} className="h-14 sm:h-20" />;
+                    if (!item) return <div key={idx} className="h-16 sm:h-22" />;
 
                     const dayEvents = filteredEvents.filter((e) => e.date === item.dateStr);
                     const isSelected = selectedDate === item.dateStr;
@@ -568,23 +648,43 @@ export default function App() {
                       <button
                         key={item.dateStr}
                         onClick={() => setSelectedDate(item.dateStr)}
-                        className={`h-14 sm:h-20 p-1 rounded-xl border text-left flex flex-col justify-between transition ${
+                        className={`h-16 sm:h-22 p-1 rounded-xl border text-left flex flex-col justify-between transition ${
                           isSelected
                             ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20'
                             : 'border-slate-100 hover:bg-slate-50'
                         }`}
                       >
-                        <span
-                          className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                            isToday
-                              ? 'bg-indigo-600 text-white'
-                              : isSelected
-                              ? 'text-indigo-700'
-                              : 'text-slate-700'
-                          }`}
-                        >
-                          {item.day}
-                        </span>
+                        <div className="flex items-center justify-between w-full">
+                          <span
+                            className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
+                              isToday
+                                ? 'bg-indigo-600 text-white'
+                                : isSelected
+                                ? 'text-indigo-700'
+                                : 'text-slate-700'
+                            }`}
+                          >
+                            {item.day}
+                          </span>
+                          {/* Mini fotky členů, kteří mají v ten den událost */}
+                          {dayEvents.length > 0 && (
+                            <div className="flex -space-x-1.5 overflow-hidden">
+                              {dayEvents.slice(0, 3).map((ev) => {
+                                const cat = CATEGORIES.find((c) => c.id === ev.category) || CATEGORIES[0];
+                                return (
+                                  <SmartAvatar
+                                    key={ev.id}
+                                    baseName={cat.photoBase}
+                                    fallbackText={cat.fallback}
+                                    bgClass={cat.bg}
+                                    sizeClass="w-4 h-4"
+                                    textClass="text-[8px]"
+                                  />
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
 
                         {/* Barevné štítky událostí */}
                         <div className="w-full space-y-0.5 overflow-hidden">
@@ -600,7 +700,7 @@ export default function App() {
                             );
                           })}
                           {dayEvents.length > 2 && (
-                            <div className="text-[10px] text-slate-400 font-bold pl-1">
+                            <div className="text-[9px] text-slate-400 font-bold pl-1">
                               +{dayEvents.length - 2} další
                             </div>
                           )}
@@ -640,26 +740,44 @@ export default function App() {
                         return (
                           <div
                             key={ev.id}
-                            className={`p-3 rounded-xl border ${cat.light} flex items-start justify-between gap-2`}
+                            className={`p-3 rounded-xl border ${cat.light} flex items-start justify-between gap-3`}
                           >
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full text-white ${cat.bg}`}>
-                                  {cat.label}
-                                </span>
-                                <span className="text-xs font-semibold flex items-center gap-1 opacity-75">
-                                  <Clock className="w-3.5 h-3.5" /> {ev.time}
-                                </span>
+                            <div className="flex items-start gap-3">
+                              <SmartAvatar
+                                baseName={cat.photoBase}
+                                fallbackText={cat.fallback}
+                                bgClass={cat.bg}
+                                sizeClass="w-10 h-10 mt-0.5"
+                                textClass="text-xs"
+                              />
+                              <div>
+                                <div className="flex items-center gap-2 flex-wrap">
+                                  <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full text-white ${cat.bg}`}>
+                                    {cat.label}
+                                  </span>
+                                  <span className="text-xs font-semibold flex items-center gap-1 opacity-75">
+                                    <Clock className="w-3.5 h-3.5" /> {ev.time}
+                                  </span>
+                                </div>
+                                <h4 className="font-bold text-slate-800 mt-1">{ev.title}</h4>
+                                {ev.note && <p className="text-xs text-slate-600 mt-1">{ev.note}</p>}
+                                <div className="flex items-center gap-1.5 mt-2">
+                                  <SmartAvatar
+                                    baseName={ev.createdBy}
+                                    fallbackText={ev.createdBy ? ev.createdBy[0] : 'V'}
+                                    bgClass="bg-slate-500"
+                                    sizeClass="w-4 h-4"
+                                    textClass="text-[8px]"
+                                  />
+                                  <p className="text-[11px] text-slate-500">
+                                    Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
+                                  </p>
+                                </div>
                               </div>
-                              <h4 className="font-bold text-slate-800 mt-1.5">{ev.title}</h4>
-                              {ev.note && <p className="text-xs text-slate-600 mt-1">{ev.note}</p>}
-                              <p className="text-[11px] text-slate-400 mt-2">
-                                Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
-                              </p>
                             </div>
                             <button
                               onClick={() => handleDeleteEvent(ev.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg"
+                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg shrink-0"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
@@ -730,9 +848,18 @@ export default function App() {
                         <p className={`font-semibold text-sm ${item.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
                           {item.text}
                         </p>
-                        <p className="text-[11px] text-slate-400">
-                          {item.category} • přidal(a) {item.addedBy}
-                        </p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <SmartAvatar
+                            baseName={item.addedBy}
+                            fallbackText={item.addedBy ? item.addedBy[0] : 'V'}
+                            bgClass="bg-slate-500"
+                            sizeClass="w-3.5 h-3.5"
+                            textClass="text-[8px]"
+                          />
+                          <p className="text-[11px] text-slate-400">
+                            {item.category} • přidal(a) {item.addedBy}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <button
@@ -761,7 +888,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Modální okno pro novou událost */}
+      {/* Modální okno pro novou událost s fotkami členů rodiny */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
@@ -793,14 +920,20 @@ export default function App() {
                       type="button"
                       key={cat.id}
                       onClick={() => setNewEventCategory(cat.id)}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center gap-2 transition ${
+                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 transition ${
                         newEventCategory === cat.id
                           ? `${cat.bg} text-white border-transparent shadow-sm`
                           : 'bg-white text-slate-700 border-slate-200'
                       }`}
                     >
-                      <span className={`w-2 h-2 rounded-full ${newEventCategory === cat.id ? 'bg-white' : cat.dot}`} />
-                      {cat.label}
+                      <SmartAvatar
+                        baseName={cat.photoBase}
+                        fallbackText={cat.fallback}
+                        bgClass={cat.bg}
+                        sizeClass="w-6 h-6"
+                        textClass="text-[10px]"
+                      />
+                      <span className="truncate">{cat.label}</span>
                     </button>
                   ))}
                 </div>
