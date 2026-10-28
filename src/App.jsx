@@ -21,7 +21,6 @@ import {
   Clock,
   CheckCircle2,
   Circle,
-  Heart,
   Lock,
   Mail,
   Sparkles,
@@ -82,6 +81,65 @@ const CATEGORIES = [
   { id: 'ella', label: 'Ella', photoBase: 'Ella', fallback: 'E', bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' }
 ];
 
+// ============================================================================
+// 4. PEVNÉ RODINNÉ UDÁLOSTI (Narozeniny, Výročí, Svátky)
+// ============================================================================
+const FIXED_ANNUAL_EVENTS = [
+  // Narozeniny
+  { month: 4, day: 28, type: 'birthday', startYear: 1989, person: 'Petr', category: 'petr' },
+  { month: 6, day: 14, type: 'birthday', startYear: 1995, person: 'Lea', category: 'lea' },
+  { month: 8, day: 13, type: 'birthday', startYear: 2023, person: 'Patrik', category: 'patrik' },
+  { month: 3, day: 25, type: 'birthday', startYear: 2025, person: 'Ella', category: 'ella' },
+
+  // Výročí svatby
+  { month: 8, day: 6, type: 'anniversary', startYear: 2021, person: 'Petr & Lea', category: 'rodina' },
+
+  // Svátky (jmeniny)
+  { month: 2, day: 19, type: 'nameday', person: 'Patrik', category: 'patrik', note: 'Svátek slaví Patrik!' },
+  { month: 2, day: 22, type: 'nameday', person: 'Petr', category: 'petr', note: 'Svátek slaví Petr!' },
+  { month: 6, day: 29, type: 'nameday', person: 'Petr (Petr a Pavel)', category: 'petr', note: 'Svátek slaví Petr a Pavel!' },
+  { month: 3, day: 7, type: 'nameday', person: 'Ella', category: 'ella', note: 'Svátek slaví Ella!' },
+  { month: 3, day: 22, type: 'nameday', person: 'Leona', category: 'lea', note: 'Svátek slaví Leona!' }
+  ];
+
+function formatCzechYears(years) {
+  if (years === 1) return '1 rok';
+  if (years >= 2 && years <= 4) return `${years} roky`;
+  return `${years} let`;
+}
+
+function getFixedEventsForYear(year) {
+  return FIXED_ANNUAL_EVENTS.map((item, idx) => {
+    const dateStr = `${year}-${String(item.month).padStart(2, '0')}-${String(item.day).padStart(2, '0')}`;
+    const diff = item.startYear ? year - item.startYear : 0;
+
+    let title = '';
+    let note = '';
+
+    if (item.type === 'birthday') {
+      title = `🎂 Narozeniny: ${item.person} (${formatCzechYears(diff)})`;
+      note = `Narozen(a) ${item.day}. ${item.month}. ${item.startYear} – letos slaví ${formatCzechYears(diff)}!`;
+    } else if (item.type === 'anniversary') {
+      title = `💍 ${diff}. výročí svatby`;
+      note = `Svatba 6. 8. ${item.startYear} – letos slavíte ${formatCzechYears(diff)} spolu!`;
+    } else {
+      title = `🎉 Svátek: ${item.person}`;
+      note = item.note || 'Všechno nejlepší k svátku!';
+    }
+
+    return {
+      id: `fixed-${year}-${idx}`,
+      title,
+      date: dateStr,
+      time: 'Celý den',
+      category: item.category,
+      note,
+      createdBy: 'Rodinný kalendář',
+      isFixed: true
+    };
+  });
+}
+
 const SHOP_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti (Patrik & Ella)', 'Domácnost', 'Ostatní'];
 
 const MONTHS_CZ = [
@@ -92,7 +150,7 @@ const MONTHS_CZ = [
 const DAYS_CZ = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 
 // ============================================================================
-// CHYTRÁ KOMPONENTA PRO FOTKY (automaticky zkusí .jpg, .png, .jpeg, velká/malá písmena)
+// CHYTRÁ KOMPONENTA PRO FOTKY
 // ============================================================================
 function SmartAvatar({ baseName, fallbackText, bgClass = 'bg-indigo-600', sizeClass = 'w-8 h-8', textClass = 'text-xs' }) {
   const [attempt, setAttempt] = useState(0);
@@ -125,13 +183,12 @@ function SmartAvatar({ baseName, fallbackText, bgClass = 'bg-indigo-600', sizeCl
       src={candidates[attempt]}
       alt={baseName}
       onError={() => setAttempt((prev) => prev + 1)}
-      className={`${sizeClass} rounded-full object-cover shrink-0 shadow-sm border border-white/60 bg-slate-200`}
+      className={`${sizeClass} rounded-full object-cover shrink-0 shadow-sm border border-white/60 bg-slate-200 block`}
     />
   );
 }
 
 export default function App() {
-  // Přihlášení (uložené v prohlížeči telefonu)
   const [loggedUser, setLoggedUser] = useState(() => {
     const saved = localStorage.getItem('voburkovi_user');
     return saved ? JSON.parse(saved) : null;
@@ -141,37 +198,31 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  // Navigace a data
   const [activeTab, setActiveTab] = useState('calendar');
   const [fbUser, setFbUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
 
-  // Kalendářové stavy
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Formulář nové události
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventTime, setNewEventTime] = useState('');
   const [newEventCategory, setNewEventCategory] = useState('rodina');
   const [newEventNote, setNewEventNote] = useState('');
 
-  // Formulář nákupního seznamu
   const [newItemText, setNewItemText] = useState('');
   const [newItemCategory, setNewItemCategory] = useState('Potraviny');
 
-  // Firebase připojení na pozadí
   useEffect(() => {
     signInAnonymously(auth).catch((err) => console.error('Chyba spojení s databází:', err));
     const unsub = onAuthStateChanged(auth, (user) => setFbUser(user));
     return () => unsub();
   }, []);
 
-  // Synchronizace událostí a nákupů v reálném čase
   useEffect(() => {
     if (!fbUser || !loggedUser) return;
 
@@ -194,7 +245,6 @@ export default function App() {
     };
   }, [fbUser, loggedUser]);
 
-  // Automatické odeslání e-mailu druhému z manželů
   const sendEmailNotification = async (eventData) => {
     if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === "ZDE_VLOZTE_SERVICE_ID") {
       return;
@@ -231,7 +281,6 @@ export default function App() {
     }
   };
 
-  // Obsluha přihlášení
   const handleLogin = (e) => {
     e.preventDefault();
     const cleanEmail = emailInput.trim().toLowerCase();
@@ -262,7 +311,6 @@ export default function App() {
     setPasswordInput('');
   };
 
-  // Přidání události + automatické odeslání e-mailu
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!newEventTitle.trim() || !fbUser || isSaving) return;
@@ -295,11 +343,10 @@ export default function App() {
   };
 
   const handleDeleteEvent = async (id) => {
-    if (!fbUser) return;
+    if (!fbUser || String(id).startsWith('fixed-')) return;
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id));
   };
 
-  // Nákupní seznam
   const handleAddShoppingItem = async (e) => {
     e.preventDefault();
     if (!newItemText.trim() || !fbUser) return;
@@ -336,7 +383,6 @@ export default function App() {
     }
   };
 
-  // Výpočet dnů v měsíci
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -357,25 +403,38 @@ export default function App() {
     return days;
   }, [currentDate]);
 
+  // Spojení událostí z databáze + pevných narozenin/výročí/svátků
+  const allCombinedEvents = useMemo(() => {
+    const viewedYear = currentDate.getFullYear();
+    const selectedYear = parseInt(selectedDate.split('-')[0], 10);
+    const yearsToGenerate = Array.from(new Set([viewedYear, selectedYear]));
+
+    const fixedEvents = yearsToGenerate.flatMap((y) => getFixedEventsForYear(y));
+    return [...fixedEvents, ...events];
+  }, [events, currentDate, selectedDate]);
+
   const filteredEvents = useMemo(() => {
-    if (selectedCategoryFilter === 'all') return events;
-    return events.filter((e) => e.category === selectedCategoryFilter);
-  }, [events, selectedCategoryFilter]);
+    if (selectedCategoryFilter === 'all') return allCombinedEvents;
+    return allCombinedEvents.filter((e) => e.category === selectedCategoryFilter);
+  }, [allCombinedEvents, selectedCategoryFilter]);
 
   const selectedDayEvents = useMemo(() => {
     return filteredEvents
       .filter((e) => e.date === selectedDate)
-      .sort((a, b) => a.time.localeCompare(b.time));
+      .sort((a, b) => {
+        if (a.isFixed && !b.isFixed) return -1;
+        if (!a.isFixed && b.isFixed) return 1;
+        return a.time.localeCompare(b.time);
+      });
   }, [filteredEvents, selectedDate]);
 
   // ============================================================================
-  // OBRAZOVKA 1: PŘIHLÁŠENÍ ("Ahoj Vobůrkovi") S FOTKAMI
+  // OBRAZOVKA 1: PŘIHLÁŠENÍ ("Ahoj Vobůrkovi")
   // ============================================================================
   if (!loggedUser) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-rose-950 flex items-center justify-center p-4">
         <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-          {/* Grafická hlavička s rodinnou fotkou */}
           <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 p-7 text-center text-white relative overflow-hidden">
             <div className="mx-auto mb-3 flex items-center justify-center">
               <SmartAvatar
@@ -393,8 +452,7 @@ export default function App() {
               Petr • Lea • Patrik • Ella
             </p>
 
-            {/* Medailonky všech členů rodiny */}
-            <div className="flex items-center justify-center gap-2 mt-4">
+            <div className="flex items-center justify-center gap-2.5 mt-4">
               {CATEGORIES.filter((c) => c.id !== 'rodina').map((member) => (
                 <div key={member.id} className="flex flex-col items-center">
                   <SmartAvatar
@@ -409,7 +467,6 @@ export default function App() {
             </div>
           </div>
 
-          {/* Přihlašovací formulář */}
           <form onSubmit={handleLogin} className="p-6 sm:p-8 space-y-5">
             <div>
               <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-2">
@@ -426,7 +483,7 @@ export default function App() {
                   }`}
                 >
                   <SmartAvatar baseName="Petr" fallbackText="P" bgClass="bg-blue-600" sizeClass="w-7 h-7" />
-                  Petr
+                  <span>Petr</span>
                 </button>
                 <button
                   type="button"
@@ -438,7 +495,7 @@ export default function App() {
                   }`}
                 >
                   <SmartAvatar baseName="Lea" fallbackText="L" bgClass="bg-rose-500" sizeClass="w-7 h-7" />
-                  Lea
+                  <span>Lea</span>
                 </button>
               </div>
 
@@ -498,10 +555,9 @@ export default function App() {
   // ============================================================================
   return (
     <div className="min-h-screen bg-slate-50 pb-24 md:pb-10">
-      {/* Horní lišta s fotkou rodiny a přihlášeného uživatele */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3.5">
             <SmartAvatar
               baseName="rodina"
               fallbackText="V"
@@ -510,8 +566,8 @@ export default function App() {
               textClass="text-base"
             />
             <div>
-              <h1 className="font-bold text-slate-800 leading-tight">Vobůrkovi</h1>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <h1 className="font-bold text-slate-800 text-base leading-tight">Vobůrkovi</h1>
+              <div className="flex items-center gap-1.5 mt-1">
                 <SmartAvatar
                   baseName={loggedUser.name}
                   fallbackText={loggedUser.name[0]}
@@ -519,7 +575,7 @@ export default function App() {
                   sizeClass="w-4 h-4"
                   textClass="text-[9px]"
                 />
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-500 leading-none">
                   Přihlášen(a): <span className="font-semibold text-slate-700">{loggedUser.name}</span>
                 </p>
               </div>
@@ -527,7 +583,6 @@ export default function App() {
           </div>
 
           <div className="flex items-center gap-2">
-            {/* Přepínač pro počítač */}
             <div className="hidden md:flex bg-slate-100 p-1 rounded-xl mr-2">
               <button
                 onClick={() => setActiveTab('calendar')}
@@ -561,8 +616,8 @@ export default function App() {
       <main className="max-w-5xl mx-auto p-4">
         {activeTab === 'calendar' ? (
           <div className="space-y-4">
-           {/* Filtry členů rodiny s jejich fotkami */}
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+            {/* Filtry členů rodiny */}
+            <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
               <button
                 onClick={() => setSelectedCategoryFilter('all')}
                 className={`shrink-0 px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition ${
@@ -666,7 +721,6 @@ export default function App() {
                           >
                             {item.day}
                           </span>
-                          {/* Mini fotky členů, kteří mají v ten den událost */}
                           {dayEvents.length > 0 && (
                             <div className="flex -space-x-1.5 overflow-hidden">
                               {dayEvents.slice(0, 3).map((ev) => {
@@ -686,7 +740,6 @@ export default function App() {
                           )}
                         </div>
 
-                        {/* Barevné štítky událostí */}
                         <div className="w-full space-y-0.5 overflow-hidden">
                           {dayEvents.slice(0, 2).map((ev) => {
                             const cat = CATEGORIES.find((c) => c.id === ev.category) || CATEGORIES[0];
@@ -761,26 +814,30 @@ export default function App() {
                                 </div>
                                 <h4 className="font-bold text-slate-800 mt-1">{ev.title}</h4>
                                 {ev.note && <p className="text-xs text-slate-600 mt-1">{ev.note}</p>}
-                                <div className="flex items-center gap-1.5 mt-2">
-                                  <SmartAvatar
-                                    baseName={ev.createdBy}
-                                    fallbackText={ev.createdBy ? ev.createdBy[0] : 'V'}
-                                    bgClass="bg-slate-500"
-                                    sizeClass="w-4 h-4"
-                                    textClass="text-[8px]"
-                                  />
-                                  <p className="text-[11px] text-slate-500">
-                                    Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
-                                  </p>
-                                </div>
+                                {!ev.isFixed && (
+                                  <div className="flex items-center gap-1.5 mt-2">
+                                    <SmartAvatar
+                                      baseName={ev.createdBy}
+                                      fallbackText={ev.createdBy ? ev.createdBy[0] : 'V'}
+                                      bgClass="bg-slate-500"
+                                      sizeClass="w-4 h-4"
+                                      textClass="text-[8px]"
+                                    />
+                                    <p className="text-[11px] text-slate-500">
+                                      Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
+                                    </p>
+                                  </div>
+                                )}
                               </div>
                             </div>
-                            <button
-                              onClick={() => handleDeleteEvent(ev.id)}
-                              className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg shrink-0"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            {!ev.isFixed && (
+                              <button
+                                onClick={() => handleDeleteEvent(ev.id)}
+                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg shrink-0"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            )}
                           </div>
                         );
                       })}
@@ -888,7 +945,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Modální okno pro novou událost s fotkami členů rodiny */}
+      {/* Modální okno pro novou událost */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-white w-full max-w-md rounded-2xl p-6 shadow-xl">
@@ -914,13 +971,13 @@ export default function App() {
 
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Koho se událost týká?</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-2">
                   {CATEGORIES.map((cat) => (
                     <button
                       type="button"
                       key={cat.id}
                       onClick={() => setNewEventCategory(cat.id)}
-                      className={`py-2 px-2.5 rounded-xl text-xs font-bold border flex items-center gap-2 transition ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold border flex items-center gap-2.5 transition ${
                         newEventCategory === cat.id
                           ? `${cat.bg} text-white border-transparent shadow-sm`
                           : 'bg-white text-slate-700 border-slate-200'
