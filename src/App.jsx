@@ -256,7 +256,7 @@ export default function App() {
 
     const categoryObj = CATEGORIES.find((c) => c.id === eventData.category);
 
-    try {
+try {
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,7 +272,8 @@ export default function App() {
             event_date: eventData.date.split('-').reverse().join('. '),
             event_time: eventData.time,
             event_category: categoryObj ? categoryObj.label : 'Celá rodina',
-            event_note: eventData.note || 'Bez poznámky'
+            event_note: eventData.note || 'Bez poznámky',
+            calendar_link: 'https://voburkovi-kalendar-2.vercel.app/' // <-- TOTO PŘIDEJ SEM
           }
         })
       });
