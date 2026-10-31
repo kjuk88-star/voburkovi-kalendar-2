@@ -13,6 +13,7 @@ import {
 import {
   Calendar as CalendarIcon,
   ShoppingCart,
+  Settings,
   LogOut,
   Plus,
   Trash2,
@@ -24,7 +25,10 @@ import {
   Lock,
   Mail,
   Sparkles,
-  X
+  X,
+  FileText,
+  Star,
+  Check
 } from 'lucide-react';
 
 // ============================================================================
@@ -85,22 +89,17 @@ const CATEGORIES = [
 // 4. PEVNÉ RODINNÉ UDÁLOSTI (Narozeniny, Výročí, Svátky)
 // ============================================================================
 const FIXED_ANNUAL_EVENTS = [
-  // Narozeniny
   { month: 4, day: 28, type: 'birthday', startYear: 1989, person: 'Petr', category: 'petr' },
   { month: 6, day: 14, type: 'birthday', startYear: 1995, person: 'Lea', category: 'lea' },
   { month: 8, day: 13, type: 'birthday', startYear: 2023, person: 'Patrik', category: 'patrik' },
   { month: 3, day: 25, type: 'birthday', startYear: 2025, person: 'Ella', category: 'ella' },
-
-  // Výročí svatby
   { month: 8, day: 6, type: 'anniversary', startYear: 2021, person: 'Petr & Lea', category: 'rodina' },
-
-  // Svátky (jmeniny)
   { month: 2, day: 19, type: 'nameday', person: 'Patrik', category: 'patrik', note: 'Svátek slaví Patrik!' },
   { month: 2, day: 22, type: 'nameday', person: 'Petr', category: 'petr', note: 'Svátek slaví Petr!' },
   { month: 6, day: 29, type: 'nameday', person: 'Petr (Petr a Pavel)', category: 'petr', note: 'Svátek slaví Petr a Pavel!' },
   { month: 3, day: 7, type: 'nameday', person: 'Ella', category: 'ella', note: 'Svátek slaví Ella!' },
-  { month: 3, day: 22, type: 'nameday', person: 'Leona', category: 'lea', note: 'Svátek slaví Leona!' }
-  ];
+  { month: 6, day: 18, type: 'nameday', person: 'Lea (Leona)', category: 'lea', note: 'Svátek slaví Leona!' }
+];
 
 function formatCzechYears(years) {
   if (years === 1) return '1 rok';
@@ -141,6 +140,7 @@ function getFixedEventsForYear(year) {
 }
 
 const SHOP_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti (Patrik & Ella)', 'Domácnost', 'Ostatní'];
+const QUICK_FAVOURITES = ['Mléko (Alpro)', 'Chleba', 'Máslo', 'Vejce', 'Banány', 'Pleny', 'Káva', 'Toaletní papír'];
 
 const MONTHS_CZ = [
   'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
@@ -198,10 +198,16 @@ export default function App() {
   const [passwordInput, setPasswordInput] = useState('');
   const [loginError, setLoginError] = useState('');
 
-  const [activeTab, setActiveTab] = useState('calendar');
+  const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'shopping' | 'settings'
   const [fbUser, setFbUser] = useState(null);
   const [events, setEvents] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
+
+  // Administrace - poznámkový blok
+  const [familyNotes, setFamilyNotes] = useState(() => {
+    return localStorage.getItem('voburkovi_family_notes') || '• Děti pojištěna: VZP\n• RZ auta: ...\n• Důležité kontakty: ...';
+  });
+  const [notesSaved, setNotesSaved] = useState(false);
 
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
@@ -245,18 +251,28 @@ export default function App() {
     };
   }, [fbUser, loggedUser]);
 
+  // Seznam již použitých položek pro našeptávač a oblíbené
+  const frequentShoppingItems = useMemo(() => {
+    const counts = {};
+    shoppingList.forEach(item => {
+      const name = item.text.trim();
+      if (name) counts[name] = (counts[name] || 0) + 1;
+    });
+    const sortedFromHistory = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
+    // Kombinace historie a výchozích oblíbených
+    const combined = Array.from(new Set([...sortedFromHistory, ...QUICK_FAVOURITES]));
+    return combined;
+  }, [shoppingList]);
+
   const sendEmailNotification = async (eventData) => {
-    if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === "ZDE_VLOZTE_SERVICE_ID") {
-      return;
-    }
+    if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === "ZDE_VLOZTE_SERVICE_ID") return;
 
     const isPetr = loggedUser.email === 'voburka.p@seznam.cz';
     const recipientEmail = isPetr ? 'leona.voburkova@seznam.cz' : 'voburka.p@seznam.cz';
     const recipientName = isPetr ? 'Leo' : 'Petře';
-
     const categoryObj = CATEGORIES.find((c) => c.id === eventData.category);
 
-try {
+    try {
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -273,7 +289,7 @@ try {
             event_time: eventData.time,
             event_category: categoryObj ? categoryObj.label : 'Celá rodina',
             event_note: eventData.note || 'Bez poznámky',
-            calendar_link: 'https://voburkovi-kalendar-2.vercel.app/' // <-- TOTO PŘIDEJ SEM
+            calendar_link: 'https://voburkovi-kalendar-2.vercel.app/'
           }
         })
       });
@@ -317,7 +333,6 @@ try {
     if (!newEventTitle.trim() || !fbUser || isSaving) return;
 
     setIsSaving(true);
-
     const eventPayload = {
       title: newEventTitle.trim(),
       date: selectedDate,
@@ -331,7 +346,6 @@ try {
     try {
       const eventsRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
       await addDoc(eventsRef, eventPayload);
-
       await sendEmailNotification(eventPayload);
 
       setNewEventTitle('');
@@ -348,14 +362,13 @@ try {
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id));
   };
 
-  const handleAddShoppingItem = async (e) => {
-    e.preventDefault();
-    if (!newItemText.trim() || !fbUser) return;
+  const handleAddShoppingItem = async (textToAdd = newItemText, categoryToAdd = newItemCategory) => {
+    if (!textToAdd.trim() || !fbUser) return;
 
     const shoppingRef = collection(db, 'artifacts', appId, 'public', 'data', 'shopping');
     await addDoc(shoppingRef, {
-      text: newItemText.trim(),
-      category: newItemCategory,
+      text: textToAdd.trim(),
+      category: categoryToAdd,
       completed: false,
       addedBy: loggedUser.name,
       createdAt: Date.now()
@@ -404,7 +417,6 @@ try {
     return days;
   }, [currentDate]);
 
-  // Spojení událostí z databáze + pevných narozenin/výročí/svátků
   const allCombinedEvents = useMemo(() => {
     const viewedYear = currentDate.getFullYear();
     const selectedYear = parseInt(selectedDate.split('-')[0], 10);
@@ -552,7 +564,7 @@ try {
   }
 
   // ============================================================================
-  // OBRAZOVKA 2: HLAVNÍ APLIKACE (Kalendář + Nákupy)
+  // OBRAZOVKA 2: HLAVNÍ APLIKACE (Kalendář + Nákupy + Nastavení)
   // ============================================================================
   return (
     <div className="min-h-screen bg-slate-50 pb-24 md:pb-10">
@@ -599,7 +611,15 @@ try {
                   activeTab === 'shopping' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
                 }`}
               >
-                Nákupní seznam ({shoppingList.filter((i) => !i.completed).length})
+                Nákupy ({shoppingList.filter((i) => !i.completed).length})
+              </button>
+              <button
+                onClick={() => setActiveTab('settings')}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
+                  activeTab === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                }`}
+              >
+                Nastavení
               </button>
             </div>
 
@@ -848,23 +868,53 @@ try {
               </div>
             </div>
           </div>
-        ) : (
+        ) : activeTab === 'shopping' ? (
           // ============================================================================
-          // ZÁLOŽKA: NÁKUPNÍ SEZNAM
+          // ZÁLOŽKA: NÁKUPNÍ SEZNAM S PAMĚTÍ A POZNÁMKAMI
           // ============================================================================
           <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2">
+            <h2 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
               <ShoppingCart className="w-6 h-6 text-indigo-600" /> Rodinný nákupní seznam
             </h2>
+            <p className="text-xs text-slate-500 mb-6">
+              Můžeš psát i detaily do závorek (např. <span className="font-semibold text-slate-700">Mléko (Alpro)</span>). Aplikace si pamatuje vaše oblíbené položky.
+            </p>
 
-            <form onSubmit={handleAddShoppingItem} className="flex flex-col sm:flex-row gap-2 mb-6">
-              <input
-                type="text"
-                value={newItemText}
-                onChange={(e) => setNewItemText(e.target.value)}
-                placeholder="Co je potřeba koupit? (např. Mléko, pleny...)"
-                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none"
-              />
+            {/* Rychlá tlačítka nejčastějších nákupů */}
+            <div className="mb-4">
+              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
+                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Rychlé přidání (často nakupované):
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {frequentShoppingItems.slice(0, 10).map((favItem) => (
+                  <button
+                    key={favItem}
+                    onClick={() => handleAddShoppingItem(favItem, newItemCategory)}
+                    className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition flex items-center gap-1"
+                  >
+                    <Plus className="w-3 h-3 text-slate-400" /> {favItem}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <form onSubmit={(e) => { e.preventDefault(); handleAddShoppingItem(); }} className="flex flex-col sm:flex-row gap-2 mb-6">
+              <div className="flex-1 relative">
+                <input
+                  type="text"
+                  list="frequent-items"
+                  value={newItemText}
+                  onChange={(e) => setNewItemText(e.target.value)}
+                  placeholder="Co je potřeba koupit? (např. Mléko (Alpro))..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
+                />
+                <datalist id="frequent-items">
+                  {frequentShoppingItems.map((item) => (
+                    <option key={item} value={item} />
+                  ))}
+                </datalist>
+              </div>
+
               <select
                 value={newItemCategory}
                 onChange={(e) => setNewItemCategory(e.target.value)}
@@ -874,9 +924,10 @@ try {
                   <option key={c} value={c}>{c}</option>
                 ))}
               </select>
+
               <button
                 type="submit"
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl"
+                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-sm"
               >
                 Přidat
               </button>
@@ -942,6 +993,70 @@ try {
                 )}
               </div>
             )}
+          </div>
+        ) : (
+          // ============================================================================
+          // ZÁLOŽKA: NASTAVENÍ A ADMINISTRACE
+          // ============================================================================
+          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-6">
+            <div>
+              <h2 className="text-xl font-bold text-slate-800 mb-1 flex items-center gap-2">
+                <Settings className="w-6 h-6 text-indigo-600" /> Správa rodiny a nastavení
+              </h2>
+              <p className="text-xs text-slate-500">
+                Administrační sekce pro správu vašich rodinných údajů a poznámek.
+              </p>
+            </div>
+
+            {/* Informace o účtech */}
+            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Propojené účty</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                  <SmartAvatar baseName="Petr" fallbackText="P" bgClass="bg-blue-600" sizeClass="w-10 h-10" />
+                  <div>
+                    <p className="font-bold text-sm text-slate-800">Petr Vobůrka</p>
+                    <p className="text-xs text-slate-500">voburka.p@seznam.cz</p>
+                  </div>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
+                  <SmartAvatar baseName="Lea" fallbackText="L" bgClass="bg-rose-500" sizeClass="w-10 h-10" />
+                  <div>
+                    <p className="font-bold text-sm text-slate-800">Leona Vobůrková</p>
+                    <p className="text-xs text-slate-500">leona.voburkova@seznam.cz</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Rodinný poznámkový blok (údaje po ruce) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                  <FileText className="w-4 h-4 text-indigo-600" /> Důležité rodinné poznámky (pojištěny, čísla, auta...)
+                </label>
+                {notesSaved && (
+                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 animate-pulse">
+                    <Check className="w-3.5 h-3.5" /> Uloženo
+                  </span>
+                )}
+              </div>
+              <textarea
+                rows="5"
+                value={familyNotes}
+                onChange={(e) => {
+                  setFamilyNotes(e.target.value);
+                  localStorage.setItem('voburkovi_family_notes', e.target.value);
+                  setNotesSaved(true);
+                  setTimeout(() => setNotesSaved(false), 2000);
+                }}
+                placeholder="Zapište si sem čísla pojištěnek dětí, STK, poznámky..."
+                className="w-full p-3.5 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-mono bg-slate-50/50"
+              />
+              <p className="text-[11px] text-slate-400">
+                Poznámky se ukládají automaticky do vašeho prohlížeče v telefonu.
+              </p>
+            </div>
           </div>
         )}
       </main>
@@ -1062,6 +1177,15 @@ try {
         >
           <ShoppingCart className="w-5 h-5" />
           Nákupy ({shoppingList.filter((i) => !i.completed).length})
+        </button>
+        <button
+          onClick={() => setActiveTab('settings')}
+          className={`flex flex-col items-center gap-1 text-xs font-bold ${
+            activeTab === 'settings' ? 'text-indigo-600' : 'text-slate-400'
+          }`}
+        >
+          <Settings className="w-5 h-5" />
+          Nastavení
         </button>
       </nav>
     </div>
