@@ -5,6 +5,7 @@ import {
   getFirestore,
   collection,
   doc,
+  setDoc,
   addDoc,
   deleteDoc,
   updateDoc,
@@ -28,7 +29,14 @@ import {
   X,
   FileText,
   Star,
-  Check
+  Check,
+  Palette,
+  Users,
+  PackagePlus,
+  Camera,
+  RotateCcw,
+  MessageSquarePlus,
+  Search
 } from 'lucide-react';
 
 // ============================================================================
@@ -56,49 +64,157 @@ const EMAILJS_TEMPLATE_ID = "template_3siagoi";
 const EMAILJS_PUBLIC_KEY = "XKxcYLYcpnWxlDKsU";
 
 // ============================================================================
-// 3. NASTAVENÍ RODINY A FOTOGRAFIÍ
+// 3. VÝCHOZÍ NASTAVENÍ RODINY, BAREV A KATALOGU POTRAVIN
 // ============================================================================
 const ALLOWED_USERS = {
   'voburka.p@seznam.cz': {
-    name: 'Petr',
+    id: 'petr',
+    defaultName: 'Petr',
     role: 'Manžel',
-    color: 'bg-blue-600',
-    avatar: 'P',
     photoBase: 'Petr'
   },
   'leona.voburkova@seznam.cz': {
-    name: 'Lea',
+    id: 'lea',
+    defaultName: 'Lea',
     role: 'Manželka',
-    color: 'bg-rose-500',
-    avatar: 'L',
     photoBase: 'Lea'
   }
 };
 
 const FAMILY_PASSWORD = 'poklop123';
 
-const CATEGORIES = [
-  { id: 'rodina', label: 'Celá rodina', photoBase: 'rodina', fallback: 'V', bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-600' },
-  { id: 'petr', label: 'Petr', photoBase: 'Petr', fallback: 'P', bg: 'bg-blue-600', light: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-600' },
-  { id: 'lea', label: 'Lea', photoBase: 'Lea', fallback: 'L', bg: 'bg-rose-500', light: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
-  { id: 'patrik', label: 'Patrik', photoBase: 'Patrik', fallback: 'Pa', bg: 'bg-emerald-600', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
-  { id: 'ella', label: 'Ella', photoBase: 'Ella', fallback: 'E', bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' }
+// Paleta barev pro členy rodiny (nastavitelná v administraci)
+const MEMBER_COLOR_PALETTE = {
+  indigo: { label: 'Fialová', bg: 'bg-indigo-600', light: 'bg-indigo-50 text-indigo-700 border-indigo-200', dot: 'bg-indigo-600' },
+  blue: { label: 'Modrá', bg: 'bg-blue-600', light: 'bg-blue-50 text-blue-700 border-blue-200', dot: 'bg-blue-600' },
+  rose: { label: 'Růžová', bg: 'bg-rose-500', light: 'bg-rose-50 text-rose-700 border-rose-200', dot: 'bg-rose-500' },
+  emerald: { label: 'Zelená', bg: 'bg-emerald-600', light: 'bg-emerald-50 text-emerald-700 border-emerald-200', dot: 'bg-emerald-600' },
+  amber: { label: 'Oranžová', bg: 'bg-amber-500', light: 'bg-amber-50 text-amber-800 border-amber-200', dot: 'bg-amber-500' },
+  purple: { label: 'Švestková', bg: 'bg-purple-600', light: 'bg-purple-50 text-purple-700 border-purple-200', dot: 'bg-purple-600' },
+  teal: { label: 'Tyrkysová', bg: 'bg-teal-600', light: 'bg-teal-50 text-teal-700 border-teal-200', dot: 'bg-teal-600' }
+};
+
+// Vzhled celé aplikace (nastavitelný v administraci)
+const APP_THEMES = {
+  indigo: {
+    name: 'Rodinná Fialová (Výchozí)',
+    pageBg: 'bg-slate-50',
+    primaryBtn: 'bg-indigo-600 hover:bg-indigo-700 text-white',
+    activeNav: 'text-indigo-600',
+    selectedBorder: 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20',
+    todayBadge: 'bg-indigo-600 text-white',
+    accentText: 'text-indigo-600',
+    headerGradient: 'from-indigo-600 via-purple-600 to-rose-500'
+  },
+  emerald: {
+    name: 'Přírodní Smaragdová',
+    pageBg: 'bg-stone-50',
+    primaryBtn: 'bg-emerald-600 hover:bg-emerald-700 text-white',
+    activeNav: 'text-emerald-600',
+    selectedBorder: 'border-emerald-600 bg-emerald-50/60 ring-2 ring-emerald-500/20',
+    todayBadge: 'bg-emerald-600 text-white',
+    accentText: 'text-emerald-600',
+    headerGradient: 'from-emerald-700 via-teal-600 to-cyan-600'
+  },
+  blue: {
+    name: 'Čistá Modrá',
+    pageBg: 'bg-slate-50',
+    primaryBtn: 'bg-blue-600 hover:bg-blue-700 text-white',
+    activeNav: 'text-blue-600',
+    selectedBorder: 'border-blue-600 bg-blue-50/60 ring-2 ring-blue-500/20',
+    todayBadge: 'bg-blue-600 text-white',
+    accentText: 'text-blue-600',
+    headerGradient: 'from-blue-700 via-indigo-600 to-sky-500'
+  },
+  rose: {
+    name: 'Teplá Malinová',
+    pageBg: 'bg-rose-50/30',
+    primaryBtn: 'bg-rose-600 hover:bg-rose-700 text-white',
+    activeNav: 'text-rose-600',
+    selectedBorder: 'border-rose-500 bg-rose-50/60 ring-2 ring-rose-500/20',
+    todayBadge: 'bg-rose-600 text-white',
+    accentText: 'text-rose-600',
+    headerGradient: 'from-rose-600 via-pink-600 to-amber-500'
+  },
+  slate: {
+    name: 'Minimalistická Břidlice',
+    pageBg: 'bg-zinc-100',
+    primaryBtn: 'bg-slate-800 hover:bg-slate-900 text-white',
+    activeNav: 'text-slate-900',
+    selectedBorder: 'border-slate-800 bg-slate-200/60 ring-2 ring-slate-500/20',
+    todayBadge: 'bg-slate-900 text-white',
+    accentText: 'text-slate-800',
+    headerGradient: 'from-slate-800 via-slate-700 to-zinc-600'
+  }
+};
+
+const DEFAULT_MEMBERS = [
+  { id: 'rodina', label: 'Celá rodina', photoBase: 'rodina', fallback: 'V', colorKey: 'indigo', customPhoto: '' },
+  { id: 'petr', label: 'Petr', photoBase: 'Petr', fallback: 'P', colorKey: 'blue', customPhoto: '' },
+  { id: 'lea', label: 'Lea', photoBase: 'Lea', fallback: 'L', colorKey: 'rose', customPhoto: '' },
+  { id: 'patrik', label: 'Patrik', photoBase: 'Patrik', fallback: 'Pa', colorKey: 'emerald', customPhoto: '' },
+  { id: 'ella', label: 'Ella', photoBase: 'Ella', fallback: 'E', colorKey: 'amber', customPhoto: '' }
+];
+
+// Výchozí katalog zboží s Emoji ikonkami
+const DEFAULT_CATALOG = [
+  { id: 'cat-mleko', name: 'Mléko', icon: '🥛', category: 'Potraviny', usageCount: 10 },
+  { id: 'cat-chleba', name: 'Chleba', icon: '🍞', category: 'Pečivo', usageCount: 9 },
+  { id: 'cat-rohlíky', name: 'Rohlíky', icon: '🥐', category: 'Pečivo', usageCount: 8 },
+  { id: 'cat-maslo', name: 'Máslo', icon: '🧈', category: 'Potraviny', usageCount: 8 },
+  { id: 'cat-vejce', name: 'Vejce', icon: '🥚', category: 'Potraviny', usageCount: 7 },
+  { id: 'cat-syr', name: 'Sýr', icon: '🧀', category: 'Potraviny', usageCount: 6 },
+  { id: 'cat-jogurt', name: 'Jogurt', icon: '🥣', category: 'Potraviny', usageCount: 6 },
+  { id: 'cat-sunka', name: 'Šunka', icon: '🥩', category: 'Potraviny', usageCount: 6 },
+  { id: 'cat-banany', name: 'Banány', icon: '🍌', category: 'Ovoce a zelenina', usageCount: 7 },
+  { id: 'cat-jablka', name: 'Jablka', icon: '🍎', category: 'Ovoce a zelenina', usageCount: 5 },
+  { id: 'cat-rajcata', name: 'Rajčata', icon: '🍅', category: 'Ovoce a zelenina', usageCount: 5 },
+  { id: 'cat-brambory', name: 'Brambory', icon: '🥔', category: 'Ovoce a zelenina', usageCount: 4 },
+  { id: 'cat-kureci', name: 'Kuřecí maso', icon: '🍗', category: 'Potraviny', usageCount: 5 },
+  { id: 'cat-testoviny', name: 'Těstoviny', icon: '🍝', category: 'Potraviny', usageCount: 4 },
+  { id: 'cat-kava', name: 'Káva', icon: '☕', category: 'Nápoje', usageCount: 5 },
+  { id: 'cat-voda', name: 'Voda', icon: '💧', category: 'Nápoje', usageCount: 4 },
+  { id: 'cat-pleny', name: 'Pleny', icon: '🧷', category: 'Děti (Patrik & Ella)', usageCount: 8 },
+  { id: 'cat-ubrousky', name: 'Vlhčené ubrousky', icon: '🧻', category: 'Děti (Patrik & Ella)', usageCount: 6 },
+  { id: 'cat-kapsicky', name: 'Ovocné kapsičky', icon: '🍓', category: 'Děti (Patrik & Ella)', usageCount: 5 },
+  { id: 'cat-toaletni', name: 'Toaletní papír', icon: '🧻', category: 'Drogerie', usageCount: 6 },
+  { id: 'cat-tablety', name: 'Tablety do myčky', icon: '🧼', category: 'Drogerie', usageCount: 3 },
+  { id: 'cat-prasek', name: 'Prací gel', icon: '🧺', category: 'Drogerie', usageCount: 3 }
+];
+
+const SHOP_CATEGORIES = [
+  'Potraviny',
+  'Pečivo',
+  'Ovoce a zelenina',
+  'Nápoje',
+  'Děti (Patrik & Ella)',
+  'Drogerie',
+  'Domácnost',
+  'Ostatní'
+];
+
+const EMOJI_PRESETS = [
+  '🥛', '🍞', '🥐', '🥖', '🧈', '🥚', '🧀', '🥩', '🍗', '🍖', '🐟', '🥣',
+  '🍎', '🍌', '🍓', '🍇', '🍋', '🥑', '🍅', '🥒', '🥕', '🥔', '🧅', '🧄', '🥦', '🌶️',
+  '🍝', '🍚', '🍕', '🍟', '🍫', '🍪', '🍰', '🍦', '🍯', '🥜',
+  '☕', '🍵', '💧', '🧃', '🍺', '🍷', '🍼',
+  '🧷', '🧸', '🧻', '🧼', '🪥', '🧴', '🧺', '🧽', '🧹', '🕯️', '🔋', '💊', '🐶', '🐱', '🛒'
 ];
 
 // ============================================================================
 // 4. PEVNÉ RODINNÉ UDÁLOSTI (Narozeniny, Výročí, Svátky)
 // ============================================================================
 const FIXED_ANNUAL_EVENTS = [
-  { month: 4, day: 28, type: 'birthday', startYear: 1989, person: 'Petr', category: 'petr' },
-  { month: 6, day: 14, type: 'birthday', startYear: 1995, person: 'Lea', category: 'lea' },
-  { month: 8, day: 13, type: 'birthday', startYear: 2023, person: 'Patrik', category: 'patrik' },
-  { month: 3, day: 25, type: 'birthday', startYear: 2025, person: 'Ella', category: 'ella' },
-  { month: 8, day: 6, type: 'anniversary', startYear: 2021, person: 'Petr & Lea', category: 'rodina' },
-  { month: 2, day: 19, type: 'nameday', person: 'Patrik', category: 'patrik', note: 'Svátek slaví Patrik!' },
-  { month: 2, day: 22, type: 'nameday', person: 'Petr', category: 'petr', note: 'Svátek slaví Petr!' },
-  { month: 6, day: 29, type: 'nameday', person: 'Petr (Petr a Pavel)', category: 'petr', note: 'Svátek slaví Petr a Pavel!' },
-  { month: 3, day: 7, type: 'nameday', person: 'Ella', category: 'ella', note: 'Svátek slaví Ella!' },
-  { month: 6, day: 18, type: 'nameday', person: 'Lea (Leona)', category: 'lea', note: 'Svátek slaví Leona!' }
+  { month: 4, day: 28, type: 'birthday', startYear: 1989, personId: 'petr', defaultPerson: 'Petr', category: 'petr' },
+  { month: 6, day: 14, type: 'birthday', startYear: 1995, personId: 'lea', defaultPerson: 'Lea', category: 'lea' },
+  { month: 8, day: 13, type: 'birthday', startYear: 2023, personId: 'patrik', defaultPerson: 'Patrik', category: 'patrik' },
+  { month: 3, day: 25, type: 'birthday', startYear: 2025, personId: 'ella', defaultPerson: 'Ella', category: 'ella' },
+  { month: 8, day: 6, type: 'anniversary', startYear: 2021, defaultPerson: 'Petr & Lea', category: 'rodina' },
+  { month: 2, day: 19, type: 'nameday', personId: 'patrik', defaultPerson: 'Patrik', category: 'patrik', note: 'Svátek slaví Patrik!' },
+  { month: 2, day: 22, type: 'nameday', personId: 'petr', defaultPerson: 'Petr', category: 'petr', note: 'Svátek slaví Petr!' },
+  { month: 6, day: 29, type: 'nameday', defaultPerson: 'Petr (Petr a Pavel)', category: 'petr', note: 'Svátek slaví Petr a Pavel!' },
+  { month: 3, day: 7, type: 'nameday', personId: 'ella', defaultPerson: 'Ella', category: 'ella', note: 'Svátek slaví Ella!' },
+  { month: 6, day: 18, type: 'nameday', personId: 'lea', defaultPerson: 'Lea (Leona)', category: 'lea', note: 'Svátek slaví Leona!' }
 ];
 
 function formatCzechYears(years) {
@@ -107,22 +223,24 @@ function formatCzechYears(years) {
   return `${years} let`;
 }
 
-function getFixedEventsForYear(year) {
+function getFixedEventsForYear(year, membersList) {
   return FIXED_ANNUAL_EVENTS.map((item, idx) => {
     const dateStr = `${year}-${String(item.month).padStart(2, '0')}-${String(item.day).padStart(2, '0')}`;
     const diff = item.startYear ? year - item.startYear : 0;
+    const memberObj = membersList.find((m) => m.id === item.personId);
+    const personName = memberObj ? memberObj.label : item.defaultPerson;
 
     let title = '';
     let note = '';
 
     if (item.type === 'birthday') {
-      title = `🎂 Narozeniny: ${item.person} (${formatCzechYears(diff)})`;
+      title = `🎂 Narozeniny: ${personName} (${formatCzechYears(diff)})`;
       note = `Narozen(a) ${item.day}. ${item.month}. ${item.startYear} – letos slaví ${formatCzechYears(diff)}!`;
     } else if (item.type === 'anniversary') {
       title = `💍 ${diff}. výročí svatby`;
       note = `Svatba 6. 8. ${item.startYear} – letos slavíte ${formatCzechYears(diff)} spolu!`;
     } else {
-      title = `🎉 Svátek: ${item.person}`;
+      title = `🎉 Svátek: ${personName}`;
       note = item.note || 'Všechno nejlepší k svátku!';
     }
 
@@ -139,9 +257,6 @@ function getFixedEventsForYear(year) {
   });
 }
 
-const SHOP_CATEGORIES = ['Potraviny', 'Drogerie', 'Děti (Patrik & Ella)', 'Domácnost', 'Ostatní'];
-const QUICK_FAVOURITES = ['Mléko (Alpro)', 'Chleba', 'Máslo', 'Vejce', 'Banány', 'Pleny', 'Káva', 'Toaletní papír'];
-
 const MONTHS_CZ = [
   'Leden', 'Únor', 'Březen', 'Duben', 'Květen', 'Červen',
   'Červenec', 'Srpen', 'Září', 'Říjen', 'Listopad', 'Prosinec'
@@ -149,10 +264,33 @@ const MONTHS_CZ = [
 
 const DAYS_CZ = ['Po', 'Út', 'St', 'Čt', 'Pá', 'So', 'Ne'];
 
+// Pomocná funkce pro zmenšení fotky z mobilu před uložením do databáze
+function compressImageFile(file, maxSize = 220) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/jpeg', 0.82));
+      };
+      img.onerror = reject;
+      img.src = e.target.result;
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 // ============================================================================
-// CHYTRÁ KOMPONENTA PRO FOTKY
+// CHYTRÁ KOMPONENTA PRO FOTKY (podporuje vlastní fotku z administrace i soubory z GitHubu)
 // ============================================================================
-function SmartAvatar({ baseName, fallbackText, bgClass = 'bg-indigo-600', sizeClass = 'w-8 h-8', textClass = 'text-xs' }) {
+function SmartAvatar({ customPhoto, baseName, fallbackText, bgClass = 'bg-indigo-600', sizeClass = 'w-8 h-8', textClass = 'text-xs' }) {
   const [attempt, setAttempt] = useState(0);
 
   const candidates = useMemo(() => {
@@ -169,6 +307,16 @@ function SmartAvatar({ baseName, fallbackText, bgClass = 'bg-indigo-600', sizeCl
     }
     return list;
   }, [baseName]);
+
+  if (customPhoto) {
+    return (
+      <img
+        src={customPhoto}
+        alt={baseName || fallbackText}
+        className={`${sizeClass} rounded-full object-cover shrink-0 shadow-sm border border-white/60 bg-slate-200 block`}
+      />
+    );
+  }
 
   if (!baseName || attempt >= candidates.length) {
     return (
@@ -200,77 +348,154 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('calendar'); // 'calendar' | 'shopping' | 'settings'
   const [fbUser, setFbUser] = useState(null);
+
+  // Data z Firebase
   const [events, setEvents] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
-
-  // Administrace - poznámkový blok
-  const [familyNotes, setFamilyNotes] = useState(() => {
-    return localStorage.getItem('voburkovi_family_notes') || '• Děti pojištěna: VZP\n• RZ auta: ...\n• Důležité kontakty: ...';
+  const [catalog, setCatalog] = useState([]);
+  const [appSettings, setAppSettings] = useState({
+    familyTitle: 'Vobůrkovi',
+    theme: 'indigo',
+    members: DEFAULT_MEMBERS,
+    familyNotes: '• Děti pojišťovna: VZP\n• Důležité kontakty a poznámky...'
   });
-  const [notesSaved, setNotesSaved] = useState(false);
 
+  // Kalendářové stavy
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('all');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Formulář nové události
   const [newEventTitle, setNewEventTitle] = useState('');
   const [newEventTime, setNewEventTime] = useState('');
   const [newEventCategory, setNewEventCategory] = useState('rodina');
   const [newEventNote, setNewEventNote] = useState('');
 
-  const [newItemText, setNewItemText] = useState('');
-  const [newItemCategory, setNewItemCategory] = useState('Potraviny');
+  // Stavy pro nákupní seznam
+  const [shopSearch, setShopSearch] = useState('');
+  const [shopNoteInput, setShopNoteInput] = useState('');
+  const [shopCategoryInput, setShopCategoryInput] = useState('Potraviny');
+  const [selectedCatalogFilter, setSelectedCatalogFilter] = useState('Nejčastější');
+  const [editingNoteItemId, setEditingNoteItemId] = useState(null);
+  const [editingNoteValue, setEditingNoteValue] = useState('');
 
+  // Stavy pro administraci (Nastavení)
+  const [adminNewItemName, setAdminNewItemName] = useState('');
+  const [adminNewItemIcon, setAdminNewItemIcon] = useState('🥛');
+  const [adminNewItemCategory, setAdminNewItemCategory] = useState('Potraviny');
+  const [adminSavedToast, setAdminSavedToast] = useState('');
+  const [notesDraft, setNotesDraft] = useState('');
+
+  const themeObj = APP_THEMES[appSettings.theme] || APP_THEMES.indigo;
+
+  // Spojení informací o členech s paletou barev
+  const categoriesWithStyles = useMemo(() => {
+    const list = appSettings.members && appSettings.members.length > 0 ? appSettings.members : DEFAULT_MEMBERS;
+    return list.map((m) => {
+      const palette = MEMBER_COLOR_PALETTE[m.colorKey] || MEMBER_COLOR_PALETTE.indigo;
+      return {
+        ...m,
+        bg: palette.bg,
+        light: palette.light,
+        dot: palette.dot
+      };
+    });
+  }, [appSettings.members]);
+
+  const currentLoggedMember = useMemo(() => {
+    if (!loggedUser) return null;
+    const found = categoriesWithStyles.find((m) => m.id === loggedUser.id);
+    return found || { label: loggedUser.defaultName || loggedUser.name, photoBase: loggedUser.photoBase, bg: 'bg-blue-600' };
+  }, [loggedUser, categoriesWithStyles]);
+
+  // Firebase přihlášení
   useEffect(() => {
     signInAnonymously(auth).catch((err) => console.error('Chyba spojení s databází:', err));
     const unsub = onAuthStateChanged(auth, (user) => setFbUser(user));
     return () => unsub();
   }, []);
 
+  // Synchronizace všech kolekcí (události, nákupy, katalog zboží, nastavení)
   useEffect(() => {
-    if (!fbUser || !loggedUser) return;
+    if (!fbUser) return;
 
     const eventsRef = collection(db, 'artifacts', appId, 'public', 'data', 'events');
     const shoppingRef = collection(db, 'artifacts', appId, 'public', 'data', 'shopping');
+    const catalogRef = collection(db, 'artifacts', appId, 'public', 'data', 'catalog');
+    const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
 
     const unsubEvents = onSnapshot(eventsRef, (snapshot) => {
-      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setEvents(data);
+      setEvents(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
     });
 
     const unsubShopping = onSnapshot(shoppingRef, (snapshot) => {
-      const data = snapshot.docs.map((d) => ({ id: d.id, ...d.data() }));
-      setShoppingList(data);
+      setShoppingList(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+    });
+
+    const unsubCatalog = onSnapshot(catalogRef, async (snapshot) => {
+      if (snapshot.empty) {
+        // Naplnit výchozí katalog potravin při prvním spuštění
+        for (const item of DEFAULT_CATALOG) {
+          await setDoc(doc(db, 'artifacts', appId, 'public', 'data', 'catalog', item.id), item);
+        }
+      } else {
+        setCatalog(snapshot.docs.map((d) => ({ id: d.id, ...d.data() })));
+      }
+    });
+
+    const unsubSettings = onSnapshot(settingsDocRef, (docSnap) => {
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setAppSettings((prev) => ({
+          ...prev,
+          ...data,
+          members: data.members || DEFAULT_MEMBERS
+        }));
+        setNotesDraft(data.familyNotes || '');
+      } else {
+        setDoc(settingsDocRef, {
+          familyTitle: 'Vobůrkovi',
+          theme: 'indigo',
+          members: DEFAULT_MEMBERS,
+          familyNotes: '• Děti pojišťovna: VZP\n• Důležité kontakty a poznámky...'
+        });
+      }
     });
 
     return () => {
       unsubEvents();
       unsubShopping();
+      unsubCatalog();
+      unsubSettings();
     };
-  }, [fbUser, loggedUser]);
+  }, [fbUser]);
 
-  // Seznam již použitých položek pro našeptávač a oblíbené
-  const frequentShoppingItems = useMemo(() => {
-    const counts = {};
-    shoppingList.forEach(item => {
-      const name = item.text.trim();
-      if (name) counts[name] = (counts[name] || 0) + 1;
-    });
-    const sortedFromHistory = Object.keys(counts).sort((a, b) => counts[b] - counts[a]);
-    // Kombinace historie a výchozích oblíbených
-    const combined = Array.from(new Set([...sortedFromHistory, ...QUICK_FAVOURITES]));
-    return combined;
-  }, [shoppingList]);
+  const showToast = (msg) => {
+    setAdminSavedToast(msg);
+    setTimeout(() => setAdminSavedToast(''), 2500);
+  };
 
+  // Uložení nastavení do Firebase
+  const saveSettingsToCloud = async (partialSettings, toastMsg = 'Nastavení uloženo') => {
+    if (!fbUser) return;
+    const nextSettings = { ...appSettings, ...partialSettings };
+    setAppSettings(nextSettings);
+    const settingsDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'settings', 'config');
+    await setDoc(settingsDocRef, nextSettings, { merge: true });
+    if (toastMsg) showToast(toastMsg);
+  };
+
+  // Odeslání e-mailu druhému z manželů
   const sendEmailNotification = async (eventData) => {
     if (!EMAILJS_SERVICE_ID || EMAILJS_SERVICE_ID === "ZDE_VLOZTE_SERVICE_ID") return;
 
     const isPetr = loggedUser.email === 'voburka.p@seznam.cz';
     const recipientEmail = isPetr ? 'leona.voburkova@seznam.cz' : 'voburka.p@seznam.cz';
-    const recipientName = isPetr ? 'Leo' : 'Petře';
-    const categoryObj = CATEGORIES.find((c) => c.id === eventData.category);
+    const recipientMember = categoriesWithStyles.find((m) => m.id === (isPetr ? 'lea' : 'petr'));
+    const recipientName = recipientMember ? recipientMember.label : (isPetr ? 'Leo' : 'Petře');
+    const categoryObj = categoriesWithStyles.find((c) => c.id === eventData.category);
 
     try {
       await fetch('https://api.emailjs.com/api/v1.0/email/send', {
@@ -283,7 +508,7 @@ export default function App() {
           template_params: {
             to_email: recipientEmail,
             to_name: recipientName,
-            created_by: loggedUser.name,
+            created_by: currentLoggedMember?.label || loggedUser.name,
             event_title: eventData.title,
             event_date: eventData.date.split('-').reverse().join('. '),
             event_time: eventData.time,
@@ -298,12 +523,13 @@ export default function App() {
     }
   };
 
+  // Přihlášení
   const handleLogin = (e) => {
     e.preventDefault();
     const cleanEmail = emailInput.trim().toLowerCase();
 
     if (!ALLOWED_USERS[cleanEmail]) {
-      setLoginError('Tento e-mail nemá přístup do rodinného kalendáře Vobůrkových.');
+      setLoginError('Tento e-mail nemá přístup do rodinného kalendáře.');
       return;
     }
 
@@ -314,7 +540,8 @@ export default function App() {
 
     const userProfile = {
       email: cleanEmail,
-      ...ALLOWED_USERS[cleanEmail]
+      ...ALLOWED_USERS[cleanEmail],
+      name: ALLOWED_USERS[cleanEmail].defaultName
     };
 
     localStorage.setItem('voburkovi_user', JSON.stringify(userProfile));
@@ -328,6 +555,7 @@ export default function App() {
     setPasswordInput('');
   };
 
+  // Události v kalendáři
   const handleAddEvent = async (e) => {
     e.preventDefault();
     if (!newEventTitle.trim() || !fbUser || isSaving) return;
@@ -339,7 +567,8 @@ export default function App() {
       time: newEventTime || 'Celý den',
       category: newEventCategory,
       note: newEventNote.trim(),
-      createdBy: loggedUser.name,
+      createdBy: currentLoggedMember?.label || loggedUser.name,
+      createdById: loggedUser.id || 'petr',
       createdAt: Date.now()
     };
 
@@ -362,19 +591,86 @@ export default function App() {
     await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'events', id));
   };
 
-  const handleAddShoppingItem = async (textToAdd = newItemText, categoryToAdd = newItemCategory) => {
-    if (!textToAdd.trim() || !fbUser) return;
+  // ============================================================================
+  // NÁKUPNÍ SEZNAM & KATALOG POTRAVIN
+  // ============================================================================
+  const sortedCatalog = useMemo(() => {
+    return [...catalog].sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0));
+  }, [catalog]);
 
+  const filteredCatalogForPicker = useMemo(() => {
+    if (shopSearch.trim()) {
+      const q = shopSearch.trim().toLowerCase();
+      return sortedCatalog.filter((c) => c.name.toLowerCase().includes(q));
+    }
+    if (selectedCatalogFilter === 'Nejčastější') {
+      return sortedCatalog.slice(0, 14);
+    }
+    return sortedCatalog.filter((c) => c.category === selectedCatalogFilter);
+  }, [sortedCatalog, shopSearch, selectedCatalogFilter]);
+
+  // Přidání položky z katalogu (nebo ručně z vyhledávání) do aktivního nákupního seznamu
+  const addProductToShoppingList = async (catalogItem, customNote = '') => {
+    if (!fbUser) return;
     const shoppingRef = collection(db, 'artifacts', appId, 'public', 'data', 'shopping');
+
     await addDoc(shoppingRef, {
-      text: textToAdd.trim(),
-      category: categoryToAdd,
+      text: catalogItem.name,
+      icon: catalogItem.icon || '🛒',
+      category: catalogItem.category || 'Potraviny',
+      note: customNote.trim(),
       completed: false,
-      addedBy: loggedUser.name,
+      addedBy: currentLoggedMember?.label || loggedUser.name,
+      addedById: loggedUser.id || 'petr',
       createdAt: Date.now()
     });
 
-    setNewItemText('');
+    // Zvýšit počítadlo oblíbenosti v katalogu
+    if (catalogItem.id) {
+      const catDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'catalog', catalogItem.id);
+      await updateDoc(catDocRef, {
+        usageCount: (catalogItem.usageCount || 0) + 1
+      }).catch(() => {});
+    }
+  };
+
+  // Ruční odeslání formuláře v nákupech (pokud zboží ještě není v katalogu, rovnou ho i uloží do katalogu)
+  const handleManualShopSubmit = async (e) => {
+    e.preventDefault();
+    if (!shopSearch.trim() || !fbUser) return;
+
+    const cleanName = shopSearch.trim();
+    const existing = catalog.find((c) => c.name.toLowerCase() === cleanName.toLowerCase());
+
+    if (existing) {
+      await addProductToShoppingList(existing, shopNoteInput);
+    } else {
+      // Vytvořit rovnou i v katalogu, aby příště bylo v nabídce
+      const catalogRef = collection(db, 'artifacts', appId, 'public', 'data', 'catalog');
+      const newCatDoc = await addDoc(catalogRef, {
+        name: cleanName,
+        icon: '🛒',
+        category: shopCategoryInput,
+        usageCount: 1
+      });
+      await addProductToShoppingList(
+        { id: newCatDoc.id, name: cleanName, icon: '🛒', category: shopCategoryInput, usageCount: 1 },
+        shopNoteInput
+      );
+    }
+
+    setShopSearch('');
+    setShopNoteInput('');
+  };
+
+  // Uložení nebo úprava poznámky u konkrétní položky v nákupním seznamu (např. "Alpro")
+  const handleSaveItemNote = async (itemId) => {
+    if (!fbUser) return;
+    await updateDoc(doc(db, 'artifacts', appId, 'public', 'data', 'shopping', itemId), {
+      note: editingNoteValue.trim()
+    });
+    setEditingNoteItemId(null);
+    setEditingNoteValue('');
   };
 
   const toggleShoppingItem = async (item) => {
@@ -397,6 +693,64 @@ export default function App() {
     }
   };
 
+  // Přidání nového produktu do katalogu v Administraci
+  const handleAdminAddCatalogItem = async (e) => {
+    e.preventDefault();
+    if (!adminNewItemName.trim() || !fbUser) return;
+
+    const catalogRef = collection(db, 'artifacts', appId, 'public', 'data', 'catalog');
+    await addDoc(catalogRef, {
+      name: adminNewItemName.trim(),
+      icon: adminNewItemIcon || '🛒',
+      category: adminNewItemCategory,
+      usageCount: 1
+    });
+
+    setAdminNewItemName('');
+    showToast('Zboží přidáno do katalogu');
+  };
+
+  const handleAdminDeleteCatalogItem = async (id) => {
+    if (!fbUser) return;
+    await deleteDoc(doc(db, 'artifacts', appId, 'public', 'data', 'catalog', id));
+    showToast('Položka smazána z katalogu');
+  };
+
+  // Změna člena rodiny v Administraci (jméno, barva, vlastní fotka z mobilu)
+  const handleUpdateMember = async (memberId, changes) => {
+    const updated = categoriesWithStyles.map((m) =>
+      m.id === memberId
+        ? {
+            id: m.id,
+            label: changes.label !== undefined ? changes.label : m.label,
+            photoBase: m.photoBase,
+            fallback: (changes.label || m.label || 'V')[0].toUpperCase(),
+            colorKey: changes.colorKey !== undefined ? changes.colorKey : m.colorKey,
+            customPhoto: changes.customPhoto !== undefined ? changes.customPhoto : (m.customPhoto || '')
+          }
+        : {
+            id: m.id,
+            label: m.label,
+            photoBase: m.photoBase,
+            fallback: m.fallback,
+            colorKey: m.colorKey,
+            customPhoto: m.customPhoto || ''
+          }
+    );
+    await saveSettingsToCloud({ members: updated }, 'Profil člena uložen');
+  };
+
+  const handlePhotoUpload = async (memberId, file) => {
+    if (!file) return;
+    try {
+      const base64Photo = await compressImageFile(file, 220);
+      await handleUpdateMember(memberId, { customPhoto: base64Photo });
+    } catch (err) {
+      console.error('Chyba při nahrávání fotky:', err);
+    }
+  };
+
+  // Výpočet dnů v měsíci
   const calendarDays = useMemo(() => {
     const year = currentDate.getFullYear();
     const month = currentDate.getMonth();
@@ -422,9 +776,9 @@ export default function App() {
     const selectedYear = parseInt(selectedDate.split('-')[0], 10);
     const yearsToGenerate = Array.from(new Set([viewedYear, selectedYear]));
 
-    const fixedEvents = yearsToGenerate.flatMap((y) => getFixedEventsForYear(y));
+    const fixedEvents = yearsToGenerate.flatMap((y) => getFixedEventsForYear(y, categoriesWithStyles));
     return [...fixedEvents, ...events];
-  }, [events, currentDate, selectedDate]);
+  }, [events, currentDate, selectedDate, categoriesWithStyles]);
 
   const filteredEvents = useMemo(() => {
     if (selectedCategoryFilter === 'all') return allCombinedEvents;
@@ -441,6 +795,8 @@ export default function App() {
       });
   }, [filteredEvents, selectedDate]);
 
+  const familyHeaderMember = categoriesWithStyles.find((c) => c.id === 'rodina') || DEFAULT_MEMBERS[0];
+
   // ============================================================================
   // OBRAZOVKA 1: PŘIHLÁŠENÍ ("Ahoj Vobůrkovi")
   // ============================================================================
@@ -448,9 +804,10 @@ export default function App() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-950 via-slate-900 to-rose-950 flex items-center justify-center p-4">
         <div className="bg-white/95 backdrop-blur-xl w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-white/20">
-          <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-rose-500 p-7 text-center text-white relative overflow-hidden">
+          <div className={`bg-gradient-to-r ${themeObj.headerGradient} p-7 text-center text-white relative overflow-hidden`}>
             <div className="mx-auto mb-3 flex items-center justify-center">
               <SmartAvatar
+                customPhoto={familyHeaderMember.customPhoto}
                 baseName="rodina"
                 fallbackText="V"
                 bgClass="bg-white/20"
@@ -459,16 +816,17 @@ export default function App() {
               />
             </div>
             <h1 className="text-3xl font-extrabold tracking-tight flex items-center justify-center gap-2">
-              Ahoj Vobůrkovi <Sparkles className="w-6 h-6 text-amber-300" />
+              Ahoj {appSettings.familyTitle || 'Vobůrkovi'} <Sparkles className="w-6 h-6 text-amber-300" />
             </h1>
-            <p className="text-indigo-100 text-sm mt-1.5 font-medium">
-              Petr • Lea • Patrik • Ella
+            <p className="text-white/85 text-sm mt-1.5 font-medium">
+              {categoriesWithStyles.filter((c) => c.id !== 'rodina').map((c) => c.label).join(' • ')}
             </p>
 
             <div className="flex items-center justify-center gap-2.5 mt-4">
-              {CATEGORIES.filter((c) => c.id !== 'rodina').map((member) => (
+              {categoriesWithStyles.filter((c) => c.id !== 'rodina').map((member) => (
                 <div key={member.id} className="flex flex-col items-center">
                   <SmartAvatar
+                    customPhoto={member.customPhoto}
                     baseName={member.photoBase}
                     fallbackText={member.fallback}
                     bgClass={member.bg}
@@ -486,30 +844,31 @@ export default function App() {
                 Kdo se přihlašuje?
               </label>
               <div className="grid grid-cols-2 gap-3 mb-4">
-                <button
-                  type="button"
-                  onClick={() => setEmailInput('voburka.p@seznam.cz')}
-                  className={`py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2.5 transition ${
-                    emailInput === 'voburka.p@seznam.cz'
-                      ? 'bg-blue-50 border-blue-500 text-blue-700 ring-2 ring-blue-500/20'
-                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <SmartAvatar baseName="Petr" fallbackText="P" bgClass="bg-blue-600" sizeClass="w-7 h-7" />
-                  <span>Petr</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEmailInput('leona.voburkova@seznam.cz')}
-                  className={`py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2.5 transition ${
-                    emailInput === 'leona.voburkova@seznam.cz'
-                      ? 'bg-rose-50 border-rose-500 text-rose-700 ring-2 ring-rose-500/20'
-                      : 'border-slate-200 text-slate-700 hover:bg-slate-50'
-                  }`}
-                >
-                  <SmartAvatar baseName="Lea" fallbackText="L" bgClass="bg-rose-500" sizeClass="w-7 h-7" />
-                  <span>Lea</span>
-                </button>
+                {['petr', 'lea'].map((uid) => {
+                  const emailKey = uid === 'petr' ? 'voburka.p@seznam.cz' : 'leona.voburkova@seznam.cz';
+                  const member = categoriesWithStyles.find((m) => m.id === uid) || DEFAULT_MEMBERS[uid === 'petr' ? 1 : 2];
+                  return (
+                    <button
+                      key={uid}
+                      type="button"
+                      onClick={() => setEmailInput(emailKey)}
+                      className={`py-2.5 px-3 rounded-xl border text-sm font-bold flex items-center justify-center gap-2.5 transition ${
+                        emailInput === emailKey
+                          ? 'bg-indigo-50 border-indigo-500 text-indigo-700 ring-2 ring-indigo-500/20'
+                          : 'border-slate-200 text-slate-700 hover:bg-slate-50'
+                      }`}
+                    >
+                      <SmartAvatar
+                        customPhoto={member.customPhoto}
+                        baseName={member.photoBase}
+                        fallbackText={member.fallback}
+                        bgClass={member.bg}
+                        sizeClass="w-7 h-7"
+                      />
+                      <span>{member.label}</span>
+                    </button>
+                  );
+                })}
               </div>
 
               <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -523,7 +882,7 @@ export default function App() {
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
                   placeholder="voburka.p@seznam.cz"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
                 />
               </div>
             </div>
@@ -540,7 +899,7 @@ export default function App() {
                   value={passwordInput}
                   onChange={(e) => setPasswordInput(e.target.value)}
                   placeholder="•••••••••"
-                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-slate-800"
+                  className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-800"
                 />
               </div>
             </div>
@@ -553,7 +912,7 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-rose-500 hover:from-indigo-700 hover:to-rose-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-500/25 transition"
+              className={`w-full py-3.5 bg-gradient-to-r ${themeObj.headerGradient} text-white font-bold rounded-xl shadow-lg transition`}
             >
               Vstoupit do kalendáře
             </button>
@@ -564,32 +923,43 @@ export default function App() {
   }
 
   // ============================================================================
-  // OBRAZOVKA 2: HLAVNÍ APLIKACE (Kalendář + Nákupy + Nastavení)
+  // OBRAZOVKA 2: HLAVNÍ APLIKACE (Kalendář + Nákupy + Administrace)
   // ============================================================================
   return (
-    <div className="min-h-screen bg-slate-50 pb-24 md:pb-10">
+    <div className={`min-h-screen ${themeObj.pageBg} pb-24 md:pb-10`}>
+      {/* Plovoucí notifikace o uložení */}
+      {adminSavedToast && (
+        <div className="fixed bottom-20 md:bottom-6 right-4 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-xl shadow-lg text-xs font-bold flex items-center gap-2">
+          <Check className="w-4 h-4 text-emerald-400" /> {adminSavedToast}
+        </div>
+      )}
+
       <header className="bg-white border-b border-slate-200 sticky top-0 z-20">
         <div className="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3.5">
             <SmartAvatar
+              customPhoto={familyHeaderMember.customPhoto}
               baseName="rodina"
               fallbackText="V"
-              bgClass="bg-indigo-600"
-              sizeClass="w-11 h-11 ring-2 ring-indigo-100"
+              bgClass={familyHeaderMember.bg}
+              sizeClass="w-11 h-11 ring-2 ring-slate-100"
               textClass="text-base"
             />
             <div>
-              <h1 className="font-bold text-slate-800 text-base leading-tight">Vobůrkovi</h1>
+              <h1 className="font-bold text-slate-800 text-base leading-tight">
+                {appSettings.familyTitle || 'Vobůrkovi'}
+              </h1>
               <div className="flex items-center gap-1.5 mt-1">
                 <SmartAvatar
-                  baseName={loggedUser.name}
-                  fallbackText={loggedUser.name[0]}
-                  bgClass={loggedUser.color || 'bg-blue-600'}
+                  customPhoto={currentLoggedMember?.customPhoto}
+                  baseName={currentLoggedMember?.photoBase}
+                  fallbackText={currentLoggedMember?.label?.[0] || 'V'}
+                  bgClass={currentLoggedMember?.bg || 'bg-blue-600'}
                   sizeClass="w-4 h-4"
                   textClass="text-[9px]"
                 />
                 <p className="text-xs text-slate-500 leading-none">
-                  Přihlášen(a): <span className="font-semibold text-slate-700">{loggedUser.name}</span>
+                  Přihlášen(a): <span className="font-semibold text-slate-700">{currentLoggedMember?.label}</span>
                 </p>
               </div>
             </div>
@@ -600,7 +970,7 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('calendar')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
-                  activeTab === 'calendar' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  activeTab === 'calendar' ? `bg-white ${themeObj.accentText} shadow-sm` : 'text-slate-600'
                 }`}
               >
                 Kalendář
@@ -608,7 +978,7 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('shopping')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
-                  activeTab === 'shopping' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  activeTab === 'shopping' ? `bg-white ${themeObj.accentText} shadow-sm` : 'text-slate-600'
                 }`}
               >
                 Nákupy ({shoppingList.filter((i) => !i.completed).length})
@@ -616,7 +986,7 @@ export default function App() {
               <button
                 onClick={() => setActiveTab('settings')}
                 className={`px-4 py-1.5 rounded-lg text-sm font-semibold transition ${
-                  activeTab === 'settings' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-600'
+                  activeTab === 'settings' ? `bg-white ${themeObj.accentText} shadow-sm` : 'text-slate-600'
                 }`}
               >
                 Nastavení
@@ -636,8 +1006,10 @@ export default function App() {
 
       <main className="max-w-5xl mx-auto p-4">
         {activeTab === 'calendar' ? (
+          // ============================================================================
+          // ZÁLOŽKA 1: KALENDÁŘ
+          // ============================================================================
           <div className="space-y-4">
-            {/* Filtry členů rodiny */}
             <div className="flex items-center gap-2 overflow-x-auto py-1 no-scrollbar">
               <button
                 onClick={() => setSelectedCategoryFilter('all')}
@@ -649,7 +1021,7 @@ export default function App() {
               >
                 Vše
               </button>
-              {CATEGORIES.map((cat) => (
+              {categoriesWithStyles.map((cat) => (
                 <button
                   key={cat.id}
                   onClick={() => setSelectedCategoryFilter(cat.id)}
@@ -660,6 +1032,7 @@ export default function App() {
                   }`}
                 >
                   <SmartAvatar
+                    customPhoto={cat.customPhoto}
                     baseName={cat.photoBase}
                     fallbackText={cat.fallback}
                     bgClass={cat.bg}
@@ -672,7 +1045,6 @@ export default function App() {
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Měsíční kalendář */}
               <div className="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-slate-200 p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-bold text-slate-800">
@@ -725,19 +1097,13 @@ export default function App() {
                         key={item.dateStr}
                         onClick={() => setSelectedDate(item.dateStr)}
                         className={`h-16 sm:h-22 p-1 rounded-xl border text-left flex flex-col justify-between transition ${
-                          isSelected
-                            ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20'
-                            : 'border-slate-100 hover:bg-slate-50'
+                          isSelected ? themeObj.selectedBorder : 'border-slate-100 hover:bg-slate-50'
                         }`}
                       >
                         <div className="flex items-center justify-between w-full">
                           <span
                             className={`text-xs font-bold w-6 h-6 flex items-center justify-center rounded-full ${
-                              isToday
-                                ? 'bg-indigo-600 text-white'
-                                : isSelected
-                                ? 'text-indigo-700'
-                                : 'text-slate-700'
+                              isToday ? themeObj.todayBadge : isSelected ? themeObj.accentText : 'text-slate-700'
                             }`}
                           >
                             {item.day}
@@ -745,10 +1111,11 @@ export default function App() {
                           {dayEvents.length > 0 && (
                             <div className="flex -space-x-1.5 overflow-hidden">
                               {dayEvents.slice(0, 3).map((ev) => {
-                                const cat = CATEGORIES.find((c) => c.id === ev.category) || CATEGORIES[0];
+                                const cat = categoriesWithStyles.find((c) => c.id === ev.category) || categoriesWithStyles[0];
                                 return (
                                   <SmartAvatar
                                     key={ev.id}
+                                    customPhoto={cat.customPhoto}
                                     baseName={cat.photoBase}
                                     fallbackText={cat.fallback}
                                     bgClass={cat.bg}
@@ -763,7 +1130,7 @@ export default function App() {
 
                         <div className="w-full space-y-0.5 overflow-hidden">
                           {dayEvents.slice(0, 2).map((ev) => {
-                            const cat = CATEGORIES.find((c) => c.id === ev.category) || CATEGORIES[0];
+                            const cat = categoriesWithStyles.find((c) => c.id === ev.category) || categoriesWithStyles[0];
                             return (
                               <div
                                 key={ev.id}
@@ -797,7 +1164,7 @@ export default function App() {
                     </div>
                     <button
                       onClick={() => setIsModalOpen(true)}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-sm font-bold flex items-center gap-1.5 shadow-sm"
+                      className={`px-3.5 py-2 ${themeObj.primaryBtn} rounded-xl text-sm font-bold flex items-center gap-1.5 shadow-sm`}
                     >
                       <Plus className="w-4 h-4" /> Přidat událost
                     </button>
@@ -810,7 +1177,7 @@ export default function App() {
                   ) : (
                     <div className="space-y-3">
                       {selectedDayEvents.map((ev) => {
-                        const cat = CATEGORIES.find((c) => c.id === ev.category) || CATEGORIES[0];
+                        const cat = categoriesWithStyles.find((c) => c.id === ev.category) || categoriesWithStyles[0];
                         return (
                           <div
                             key={ev.id}
@@ -818,6 +1185,7 @@ export default function App() {
                           >
                             <div className="flex items-start gap-3">
                               <SmartAvatar
+                                customPhoto={cat.customPhoto}
                                 baseName={cat.photoBase}
                                 fallbackText={cat.fallback}
                                 bgClass={cat.bg}
@@ -836,18 +1204,9 @@ export default function App() {
                                 <h4 className="font-bold text-slate-800 mt-1">{ev.title}</h4>
                                 {ev.note && <p className="text-xs text-slate-600 mt-1">{ev.note}</p>}
                                 {!ev.isFixed && (
-                                  <div className="flex items-center gap-1.5 mt-2">
-                                    <SmartAvatar
-                                      baseName={ev.createdBy}
-                                      fallbackText={ev.createdBy ? ev.createdBy[0] : 'V'}
-                                      bgClass="bg-slate-500"
-                                      sizeClass="w-4 h-4"
-                                      textClass="text-[8px]"
-                                    />
-                                    <p className="text-[11px] text-slate-500">
-                                      Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
-                                    </p>
-                                  </div>
+                                  <p className="text-[11px] text-slate-500 mt-2">
+                                    Zapsal(a): <span className="font-semibold">{ev.createdBy}</span>
+                                  </p>
                                 )}
                               </div>
                             </div>
@@ -870,192 +1229,483 @@ export default function App() {
           </div>
         ) : activeTab === 'shopping' ? (
           // ============================================================================
-          // ZÁLOŽKA: NÁKUPNÍ SEZNAM S PAMĚTÍ A POZNÁMKAMI
+          // ZÁLOŽKA 2: CHYTRÝ NÁKUPNÍ SEZNAM S EMOJI KATALOGEM A ODDĚLENOU POZNÁMKOU
           // ============================================================================
-          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
-            <h2 className="text-xl font-bold text-slate-800 mb-2 flex items-center gap-2">
-              <ShoppingCart className="w-6 h-6 text-indigo-600" /> Rodinný nákupní seznam
-            </h2>
-            <p className="text-xs text-slate-500 mb-6">
-              Můžeš psát i detaily do závorek (např. <span className="font-semibold text-slate-700">Mléko (Alpro)</span>). Aplikace si pamatuje vaše oblíbené položky.
-            </p>
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* SEKCE A: Rychlý výběr z vašeho katalogu potravin s ikonkami */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <Star className="w-5 h-5 text-amber-500 fill-amber-500" /> Katalog zboží (klikni pro přidání)
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Řazeno automaticky podle toho, co kupujete nejčastěji.
+                  </p>
+                </div>
+                <button
+                  onClick={() => setActiveTab('settings')}
+                  className="text-xs font-bold text-indigo-600 hover:underline flex items-center gap-1 shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Spravovat zboží
+                </button>
+              </div>
 
-            {/* Rychlá tlačítka nejčastějších nákupů */}
-            <div className="mb-4">
-              <p className="text-xs font-bold uppercase tracking-wider text-slate-400 mb-2 flex items-center gap-1">
-                <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> Rychlé přidání (často nakupované):
-              </p>
-              <div className="flex flex-wrap gap-1.5">
-                {frequentShoppingItems.slice(0, 10).map((favItem) => (
+              {/* Filtry kategorií katalogu */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-2 mb-3 no-scrollbar">
+                {['Nejčastější', ...SHOP_CATEGORIES].map((catName) => (
                   <button
-                    key={favItem}
-                    onClick={() => handleAddShoppingItem(favItem, newItemCategory)}
-                    className="px-3 py-1.5 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 transition flex items-center gap-1"
+                    key={catName}
+                    onClick={() => setSelectedCatalogFilter(catName)}
+                    className={`shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition ${
+                      selectedCatalogFilter === catName
+                        ? 'bg-slate-800 text-white'
+                        : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}
                   >
-                    <Plus className="w-3 h-3 text-slate-400" /> {favItem}
+                    {catName === 'Nejčastější' ? '⭐ Nejčastější' : catName}
                   </button>
                 ))}
               </div>
-            </div>
 
-            <form onSubmit={(e) => { e.preventDefault(); handleAddShoppingItem(); }} className="flex flex-col sm:flex-row gap-2 mb-6">
-              <div className="flex-1 relative">
-                <input
-                  type="text"
-                  list="frequent-items"
-                  value={newItemText}
-                  onChange={(e) => setNewItemText(e.target.value)}
-                  placeholder="Co je potřeba koupit? (např. Mléko (Alpro))..."
-                  className="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none text-sm"
-                />
-                <datalist id="frequent-items">
-                  {frequentShoppingItems.map((item) => (
-                    <option key={item} value={item} />
-                  ))}
-                </datalist>
+              {/* Dlaždice s Emoji ikonkami */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
+                {filteredCatalogForPicker.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => addProductToShoppingList(item, shopNoteInput)}
+                    className="p-2.5 rounded-xl border border-slate-200 hover:border-indigo-400 hover:bg-indigo-50/40 bg-slate-50/60 flex items-center gap-2.5 text-left transition group"
+                  >
+                    <span className="text-2xl shrink-0">{item.icon || '🛒'}</span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-bold text-slate-800 truncate group-hover:text-indigo-700">
+                        {item.name}
+                      </p>
+                      <p className="text-[10px] text-slate-400 truncate">
+                        {item.category}
+                      </p>
+                    </div>
+                    <Plus className="w-4 h-4 text-slate-400 group-hover:text-indigo-600 shrink-0" />
+                  </button>
+                ))}
               </div>
 
-              <select
-                value={newItemCategory}
-                onChange={(e) => setNewItemCategory(e.target.value)}
-                className="px-3 py-2.5 rounded-xl border border-slate-300 bg-white text-sm font-medium text-slate-700"
-              >
-                {SHOP_CATEGORIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
-                ))}
-              </select>
-
-              <button
-                type="submit"
-                className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-xl text-sm shadow-sm"
-              >
-                Přidat
-              </button>
-            </form>
-
-            {shoppingList.length === 0 ? (
-              <p className="text-center py-8 text-slate-400 text-sm">
-                Nákupní seznam je prázdný.
-              </p>
-            ) : (
-              <div className="space-y-2">
-                {shoppingList.map((item) => (
-                  <div
-                    key={item.id}
-                    onClick={() => toggleShoppingItem(item)}
-                    className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition ${
-                      item.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200'
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {item.completed ? (
-                        <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                      ) : (
-                        <Circle className="w-5 h-5 text-slate-400 shrink-0" />
-                      )}
-                      <div>
-                        <p className={`font-semibold text-sm ${item.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
-                          {item.text}
-                        </p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                          <SmartAvatar
-                            baseName={item.addedBy}
-                            fallbackText={item.addedBy ? item.addedBy[0] : 'V'}
-                            bgClass="bg-slate-500"
-                            sizeClass="w-3.5 h-3.5"
-                            textClass="text-[8px]"
-                          />
-                          <p className="text-[11px] text-slate-400">
-                            {item.category} • přidal(a) {item.addedBy}
-                          </p>
-                        </div>
-                      </div>
-                    </div>
+              {/* Vyhledávání / Ruční přidání s volitelnou poznámkou */}
+              <form onSubmit={handleManualShopSubmit} className="pt-3 border-t border-slate-100 space-y-2">
+                <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                  Hledat v katalogu nebo dopsat vlastní položku s poznámkou:
+                </p>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2">
+                  <div className="sm:col-span-5 relative">
+                    <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
+                    <input
+                      type="text"
+                      value={shopSearch}
+                      onChange={(e) => setShopSearch(e.target.value)}
+                      placeholder="Název (např. Mléko)..."
+                      className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-4">
+                    <input
+                      type="text"
+                      value={shopNoteInput}
+                      onChange={(e) => setShopNoteInput(e.target.value)}
+                      placeholder="Poznámka (např. Alpro, 2 ks)..."
+                      className="w-full px-3 py-2 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  </div>
+                  <div className="sm:col-span-3 flex gap-1.5">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteShoppingItem(item.id);
-                      }}
-                      className="p-1.5 text-slate-400 hover:text-rose-600"
+                      type="submit"
+                      className={`w-full py-2 px-4 ${themeObj.primaryBtn} font-bold rounded-xl text-sm shadow-sm`}
                     >
-                      <Trash2 className="w-4 h-4" />
+                      + Do seznamu
                     </button>
                   </div>
-                ))}
+                </div>
+              </form>
+            </div>
 
+            {/* SEKCE B: Samotný aktivní nákupní seznam */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-slate-800 flex items-center gap-2">
+                  <ShoppingCart className={`w-6 h-6 ${themeObj.accentText}`} /> Co je potřeba koupit ({shoppingList.filter((i) => !i.completed).length})
+                </h2>
                 {shoppingList.some((i) => i.completed) && (
                   <button
                     onClick={clearCompletedShopping}
-                    className="w-full mt-4 py-2 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition"
+                    className="text-xs font-bold text-rose-600 hover:bg-rose-50 px-3 py-1.5 rounded-xl transition"
                   >
-                    Smazat koupené položky
+                    Smazat koupené
                   </button>
                 )}
               </div>
-            )}
+
+              {shoppingList.length === 0 ? (
+                <p className="text-center py-10 text-slate-400 text-sm">
+                  Nákupní seznam je prázdný. Klepněte nahoře na libovolnou položku v katalogu!
+                </p>
+              ) : (
+                <div className="space-y-2.5">
+                  {shoppingList.map((item) => {
+                    const isEditingNote = editingNoteItemId === item.id;
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-3 rounded-xl border transition ${
+                          item.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 shadow-sm'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div
+                            onClick={() => toggleShoppingItem(item)}
+                            className="flex items-start gap-3 flex-1 cursor-pointer"
+                          >
+                            <div className="mt-1">
+                              {item.completed ? (
+                                <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                              ) : (
+                                <Circle className="w-5 h-5 text-slate-400 shrink-0" />
+                              )}
+                            </div>
+
+                            <span className="text-2xl leading-none mt-0.5">{item.icon || '🛒'}</span>
+
+                            <div className="flex-1 min-w-0">
+                              <p className={`font-bold text-sm ${item.completed ? 'line-through text-slate-400' : 'text-slate-800'}`}>
+                                {item.text}
+                              </p>
+
+                              {/* Zobrazení poznámky pod názvem zboží */}
+                              {item.note && !isEditingNote && (
+                                <p className="text-xs font-semibold text-indigo-700 bg-indigo-50 border border-indigo-100 inline-block px-2 py-0.5 rounded-md mt-1">
+                                  Pozn.: {item.note}
+                                </p>
+                              )}
+
+                              <p className="text-[11px] text-slate-400 mt-1">
+                                {item.category} • přidal(a) {item.addedBy}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingNoteItemId(isEditingNote ? null : item.id);
+                                setEditingNoteValue(item.note || '');
+                              }}
+                              title="Přidat / upravit poznámku"
+                              className="px-2 py-1 text-xs font-semibold text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg flex items-center gap-1 border border-slate-200"
+                            >
+                              <MessageSquarePlus className="w-3.5 h-3.5" />
+                              <span>{item.note ? 'Upravit pozn.' : '+ Poznámka'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => deleteShoppingItem(item.id)}
+                              className="p-1.5 text-slate-400 hover:text-rose-600"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Rozbalovací řádek pro dopsání poznámky pod položku (např. "Alpro") */}
+                        {isEditingNote && (
+                          <div className="mt-2.5 pt-2.5 border-t border-slate-100 flex items-center gap-2">
+                            <input
+                              type="text"
+                              autoFocus
+                              value={editingNoteValue}
+                              onChange={(e) => setEditingNoteValue(e.target.value)}
+                              placeholder="Upřesnění (např. Alpro, bez laktózy, 2 balení)..."
+                              className="flex-1 px-3 py-1.5 rounded-lg border border-slate-300 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSaveItemNote(item.id)}
+                              className={`px-3 py-1.5 ${themeObj.primaryBtn} rounded-lg text-xs font-bold`}
+                            >
+                              Uložit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingNoteItemId(null)}
+                              className="px-2 py-1.5 text-xs text-slate-500"
+                            >
+                              Zrušit
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
           </div>
         ) : (
           // ============================================================================
-          // ZÁLOŽKA: NASTAVENÍ A ADMINISTRACE
+          // ZÁLOŽKA 3: SKUTEČNÁ ADMINISTRACE & NASTAVENÍ
           // ============================================================================
-          <div className="max-w-2xl mx-auto bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-slate-800 mb-1 flex items-center gap-2">
-                <Settings className="w-6 h-6 text-indigo-600" /> Správa rodiny a nastavení
+          <div className="max-w-3xl mx-auto space-y-6">
+            {/* 1. Vzhled a název kalendáře */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+              <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Palette className={`w-5 h-5 ${themeObj.accentText}`} /> Vzhled stránky a barvy
               </h2>
-              <p className="text-xs text-slate-500">
-                Administrační sekce pro správu vašich rodinných údajů a poznámek.
-              </p>
-            </div>
 
-            {/* Informace o účtech */}
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">Propojené účty</h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                  <SmartAvatar baseName="Petr" fallbackText="P" bgClass="bg-blue-600" sizeClass="w-10 h-10" />
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">Petr Vobůrka</p>
-                    <p className="text-xs text-slate-500">voburka.p@seznam.cz</p>
-                  </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">
+                  Název rodinného kalendáře v hlavičce
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={appSettings.familyTitle || ''}
+                    onChange={(e) => setAppSettings((prev) => ({ ...prev, familyTitle: e.target.value }))}
+                    className="flex-1 px-3.5 py-2 rounded-xl border border-slate-300 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => saveSettingsToCloud({ familyTitle: appSettings.familyTitle }, 'Název uložen')}
+                    className={`px-4 py-2 ${themeObj.primaryBtn} rounded-xl text-xs font-bold`}
+                  >
+                    Uložit název
+                  </button>
                 </div>
-                <div className="bg-white p-3 rounded-xl border border-slate-200 flex items-center gap-3">
-                  <SmartAvatar baseName="Lea" fallbackText="L" bgClass="bg-rose-500" sizeClass="w-10 h-10" />
-                  <div>
-                    <p className="font-bold text-sm text-slate-800">Leona Vobůrková</p>
-                    <p className="text-xs text-slate-500">leona.voburkova@seznam.cz</p>
-                  </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">
+                  Barevné téma celé aplikace
+                </label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {Object.entries(APP_THEMES).map(([key, t]) => (
+                    <button
+                      key={key}
+                      type="button"
+                      onClick={() => saveSettingsToCloud({ theme: key }, `Téma změněno: ${t.name}`)}
+                      className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
+                        appSettings.theme === key
+                          ? 'border-slate-900 bg-slate-50 ring-2 ring-slate-900/10'
+                          : 'border-slate-200 hover:bg-slate-50'
+                      }`}
+                    >
+                      <span className="text-xs font-bold text-slate-800">{t.name}</span>
+                      <span className={`w-5 h-5 rounded-full bg-gradient-to-tr ${t.headerGradient} shrink-0`} />
+                    </button>
+                  ))}
                 </div>
               </div>
             </div>
 
-            {/* Rodinný poznámkový blok (údaje po ruce) */}
-            <div className="space-y-2">
+            {/* 2. Správa členů rodiny (Jména, Fotky z mobilu, Barvy) */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <Users className={`w-5 h-5 ${themeObj.accentText}`} /> Členové rodiny, jména a fotky
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Tady můžete každému změnit jméno, barvu štítku v kalendáři nebo nahrát novou fotku přímo z mobilu.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                {categoriesWithStyles.map((member) => (
+                  <div
+                    key={member.id}
+                    className="p-3.5 rounded-2xl border border-slate-200 bg-slate-50/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  >
+                    <div className="flex items-center gap-3">
+                      <SmartAvatar
+                        customPhoto={member.customPhoto}
+                        baseName={member.photoBase}
+                        fallbackText={member.fallback}
+                        bgClass={member.bg}
+                        sizeClass="w-12 h-12"
+                        textClass="text-sm"
+                      />
+                      <div className="space-y-1">
+                        <input
+                          type="text"
+                          defaultValue={member.label}
+                          onBlur={(e) => {
+                            if (e.target.value.trim() && e.target.value !== member.label) {
+                              handleUpdateMember(member.id, { label: e.target.value.trim() });
+                            }
+                          }}
+                          className="px-2.5 py-1 rounded-lg border border-slate-300 text-sm font-bold text-slate-800 bg-white w-44"
+                        />
+                        <div className="flex items-center gap-2">
+                          <label className="cursor-pointer text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1">
+                            <Camera className="w-3.5 h-3.5" /> Nahrát novou fotku
+                            <input
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => handlePhotoUpload(member.id, e.target.files?.[0])}
+                            />
+                          </label>
+                          {member.customPhoto && (
+                            <button
+                              type="button"
+                              onClick={() => handleUpdateMember(member.id, { customPhoto: '' })}
+                              className="text-[11px] text-rose-600 hover:underline flex items-center gap-0.5"
+                            >
+                              <RotateCcw className="w-3 h-3" /> Původní fotka
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Výběr barvy člena */}
+                    <div className="flex items-center gap-1.5">
+                      {Object.entries(MEMBER_COLOR_PALETTE).map(([cKey, cVal]) => (
+                        <button
+                          key={cKey}
+                          type="button"
+                          onClick={() => handleUpdateMember(member.id, { colorKey: cKey })}
+                          title={cVal.label}
+                          className={`w-6 h-6 rounded-full ${cVal.bg} transition ${
+                            member.colorKey === cKey ? 'ring-2 ring-offset-2 ring-slate-800 scale-110' : 'opacity-60 hover:opacity-100'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* 3. Správa katalogu zboží a Emoji ikonek */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-4">
+              <div>
+                <h2 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+                  <PackagePlus className={`w-5 h-5 ${themeObj.accentText}`} /> Katalog potravin a drogerie (s ikonkami)
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Přidejte si vlastní zboží a vyberte mu ikonku. Všechny položky se pak zobrazí v nákupním seznamu.
+                </p>
+              </div>
+
+              <form onSubmit={handleAdminAddCatalogItem} className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
+                <p className="text-xs font-bold uppercase text-slate-500">Přidat novou položku do katalogu</p>
+
+                {/* Výběr Emoji ikonky */}
+                <div>
+                  <label className="block text-xs text-slate-500 mb-1">1. Vyber ikonku (nebo napiš vlastní emoji):</label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <input
+                      type="text"
+                      value={adminNewItemIcon}
+                      onChange={(e) => setAdminNewItemIcon(e.target.value)}
+                      className="w-14 h-10 text-center text-xl rounded-xl border border-slate-300 bg-white"
+                    />
+                    <div className="flex items-center gap-1 overflow-x-auto py-1 no-scrollbar">
+                      {EMOJI_PRESETS.map((em) => (
+                        <button
+                          key={em}
+                          type="button"
+                          onClick={() => setAdminNewItemIcon(em)}
+                          className={`w-8 h-8 rounded-lg text-lg shrink-0 flex items-center justify-center transition ${
+                            adminNewItemIcon === em ? 'bg-indigo-600 text-white shadow-sm scale-110' : 'bg-white border border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <input
+                    type="text"
+                    required
+                    value={adminNewItemName}
+                    onChange={(e) => setAdminNewItemName(e.target.value)}
+                    placeholder="2. Název (např. Mléko, Avokádo)..."
+                    className="px-3.5 py-2 rounded-xl border border-slate-300 text-sm bg-white"
+                  />
+                  <select
+                    value={adminNewItemCategory}
+                    onChange={(e) => setAdminNewItemCategory(e.target.value)}
+                    className="px-3 py-2 rounded-xl border border-slate-300 text-sm bg-white font-medium text-slate-700"
+                  >
+                    {SHOP_CATEGORIES.map((c) => (
+                      <option key={c} value={c}>{c}</option>
+                    ))}
+                  </select>
+                  <button
+                    type="submit"
+                    className={`py-2 px-4 ${themeObj.primaryBtn} font-bold rounded-xl text-sm shadow-sm`}
+                  >
+                    + Uložit do katalogu
+                  </button>
+                </div>
+              </form>
+
+              {/* Seznam existujících položek v katalogu */}
+              <div>
+                <p className="text-xs font-bold uppercase text-slate-400 mb-2">
+                  Váš uložený katalog ({sortedCatalog.length} položek):
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+                  {sortedCatalog.map((item) => (
+                    <div
+                      key={item.id}
+                      className="p-2 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-2"
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <span className="text-xl">{item.icon || '🛒'}</span>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">{item.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {item.category} ({item.usageCount || 0}×)
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleAdminDeleteCatalogItem(item.id)}
+                        className="p-1 text-slate-300 hover:text-rose-600 shrink-0"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* 4. Sdílené rodinné poznámky */}
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-4 sm:p-6 space-y-3">
               <div className="flex items-center justify-between">
-                <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
-                  <FileText className="w-4 h-4 text-indigo-600" /> Důležité rodinné poznámky (pojištěny, čísla, auta...)
+                <label className="text-base font-bold text-slate-800 flex items-center gap-2">
+                  <FileText className={`w-5 h-5 ${themeObj.accentText}`} /> Sdílená rodinná nástěnka (pro oba telefony)
                 </label>
-                {notesSaved && (
-                  <span className="text-xs font-bold text-emerald-600 flex items-center gap-1 animate-pulse">
-                    <Check className="w-3.5 h-3.5" /> Uloženo
-                  </span>
-                )}
+                <button
+                  type="button"
+                  onClick={() => saveSettingsToCloud({ familyNotes: notesDraft }, 'Poznámky uloženy')}
+                  className={`px-3.5 py-1.5 ${themeObj.primaryBtn} rounded-xl text-xs font-bold`}
+                >
+                  Uložit poznámky
+                </button>
               </div>
               <textarea
-                rows="5"
-                value={familyNotes}
-                onChange={(e) => {
-                  setFamilyNotes(e.target.value);
-                  localStorage.setItem('voburkovi_family_notes', e.target.value);
-                  setNotesSaved(true);
-                  setTimeout(() => setNotesSaved(false), 2000);
-                }}
-                placeholder="Zapište si sem čísla pojištěnek dětí, STK, poznámky..."
-                className="w-full p-3.5 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-indigo-500 font-mono bg-slate-50/50"
+                rows="4"
+                value={notesDraft}
+                onChange={(e) => setNotesDraft(e.target.value)}
+                placeholder="Zapište si sem čísla pojištěnek dětí, velikosti oblečení, STK..."
+                className="w-full p-3.5 rounded-xl border border-slate-300 text-sm outline-none focus:ring-2 focus:ring-indigo-500 bg-slate-50/50"
               />
-              <p className="text-[11px] text-slate-400">
-                Poznámky se ukládají automaticky do vašeho prohlížeče v telefonu.
-              </p>
             </div>
           </div>
         )}
@@ -1088,7 +1738,7 @@ export default function App() {
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1.5">Koho se událost týká?</label>
                 <div className="grid grid-cols-2 gap-2">
-                  {CATEGORIES.map((cat) => (
+                  {categoriesWithStyles.map((cat) => (
                     <button
                       type="button"
                       key={cat.id}
@@ -1100,6 +1750,7 @@ export default function App() {
                       }`}
                     >
                       <SmartAvatar
+                        customPhoto={cat.customPhoto}
                         baseName={cat.photoBase}
                         fallbackText={cat.fallback}
                         bgClass={cat.bg}
@@ -1147,7 +1798,7 @@ export default function App() {
               <button
                 type="submit"
                 disabled={isSaving}
-                className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 text-white font-bold rounded-xl shadow-md transition"
+                className={`w-full py-3 ${themeObj.primaryBtn} disabled:opacity-60 font-bold rounded-xl shadow-md transition`}
               >
                 {isSaving
                   ? 'Ukládám a posílám e-mail...'
@@ -1163,7 +1814,7 @@ export default function App() {
         <button
           onClick={() => setActiveTab('calendar')}
           className={`flex flex-col items-center gap-1 text-xs font-bold ${
-            activeTab === 'calendar' ? 'text-indigo-600' : 'text-slate-400'
+            activeTab === 'calendar' ? themeObj.activeNav : 'text-slate-400'
           }`}
         >
           <CalendarIcon className="w-5 h-5" />
@@ -1172,7 +1823,7 @@ export default function App() {
         <button
           onClick={() => setActiveTab('shopping')}
           className={`flex flex-col items-center gap-1 text-xs font-bold ${
-            activeTab === 'shopping' ? 'text-indigo-600' : 'text-slate-400'
+            activeTab === 'shopping' ? themeObj.activeNav : 'text-slate-400'
           }`}
         >
           <ShoppingCart className="w-5 h-5" />
@@ -1181,7 +1832,7 @@ export default function App() {
         <button
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-1 text-xs font-bold ${
-            activeTab === 'settings' ? 'text-indigo-600' : 'text-slate-400'
+            activeTab === 'settings' ? themeObj.activeNav : 'text-slate-400'
           }`}
         >
           <Settings className="w-5 h-5" />
